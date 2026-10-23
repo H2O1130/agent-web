@@ -4,3 +4,4 @@ tmp/
 test-results/
 playwright-report/
 *.local
+.vite/
