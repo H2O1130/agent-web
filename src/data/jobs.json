@@ -1,0 +1,14 @@
+[
+  {"id":"fe-01","role":"frontend","title":"Vue 前端开发工程师","company":"示例企业 A","education":"本科","text":"本科及以上学历，计算机相关专业。掌握 HTML/CSS、JavaScript，熟悉 Vue 和 Git；具备前端项目经验与沟通能力。了解 TypeScript 者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"fe-02","role":"frontend","title":"Web 前端开发实习生","company":"示例企业 B","education":"本科在读","text":"本科在读。熟悉 HTML、CSS 和 JS；能够使用 Git 完成协作，具备良好沟通能力。参与过 Vue 项目者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"fe-03","role":"frontend","title":"前端应用开发工程师","company":"示例企业 C","education":"本科","text":"本科及以上学历。掌握 JavaScript、TypeScript 和 Vue，熟悉 API 接口联调；具备项目经验。重视沟通与团队协作，了解测试者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"fe-04","role":"frontend","title":"业务前端开发工程师","company":"示例企业 D","education":"本科","text":"本科及以上学历。熟悉 HTML/CSS、JS、Vue 和 Git；掌握 API 接口联调，能够独立完成课程或业务项目。有 TypeScript 开发经验者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"fe-05","role":"frontend","title":"前端研发实习生","company":"示例企业 E","education":"本科在读","text":"计算机相关专业本科在读，掌握 JavaScript 和 TypeScript。熟悉 Vue、Git，具备沟通能力。有自动化测试或可访问性实践经验者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"fe-06","role":"frontend","title":"交互应用开发工程师","company":"示例企业 F","education":"本科","text":"本科及以上学历，掌握 HTML/CSS、JavaScript，熟悉 API 接口联调和 Git。具备项目经验，能够清晰沟通。Vue、TypeScript 使用经验属于加分项。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-01","role":"backend","title":"Python 后端开发工程师","company":"示例企业 G","education":"本科","text":"本科及以上学历。掌握 Python、SQL，熟悉 API 接口设计、Git 和测试；具备项目经验与沟通能力。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-02","role":"backend","title":"后端开发实习生","company":"示例企业 H","education":"本科在读","text":"本科在读，熟悉 Python 和 Git，掌握 SQL 基础。能够完成 API 接口开发，具备团队沟通能力。有项目经验者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-03","role":"backend","title":"Python 应用开发工程师","company":"示例企业 I","education":"本科","text":"本科及以上学历。掌握 Python、SQL、API 接口设计，具备 Git 使用经验。熟悉测试，能够独立完成项目并清晰沟通。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-04","role":"backend","title":"服务端研发实习生","company":"示例企业 J","education":"本科在读","text":"计算机相关专业本科在读。熟悉 Python、SQL、Git 和 API 接口开发。具备项目经验，参与过自动化测试者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-05","role":"backend","title":"Python 软件工程师","company":"示例企业 K","education":"本科","text":"本科及以上学历，掌握 Python、SQL 和测试。熟悉 Git、API 接口设计，具备沟通和团队协作能力。有完整项目经验者优先。","source":"demo","url":"","collectedAt":""},
+  {"id":"be-06","role":"backend","title":"后端业务开发工程师","company":"示例企业 L","education":"本科","text":"本科及以上学历，熟悉 Python、Git、SQL，掌握 API 接口开发。具备项目经验和沟通能力，测试经验属于加分项。","source":"demo","url":"","collectedAt":""}
+]
