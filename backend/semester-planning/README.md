@@ -2,6 +2,8 @@
 
 输入画像与岗位样本，输出与前端同构的 `Plan`。只提供 `POST /api/plan`。
 
+状态：T1—T8 已实现，`pytest` 27 passed、1 skipped；前端 19 项单测；真实 DeepSeek 与本地/远程 E2E 均已通过。
+
 需求：[`../../需求与分工.md`](../../需求与分工.md) · 运行：[`../开发说明.md`](../开发说明.md)
 
 ## 接口
@@ -71,12 +73,14 @@ DEEPSEEK_TEMPERATURE=0.2
 
 ```sh
 cd backend/semester-planning
-pytest                 # 模型全部 mock
-pytest -m live         # 仅在设置 DEEPSEEK_API_KEY 时跑
+pytest                                  # 模型全部 mock
+RUN_LIVE_TESTS=1 pytest -m live         # 需要 DEEPSEEK_API_KEY
 ```
+
+Windows PowerShell 用 `$env:RUN_LIVE_TESTS=1; pytest -m live`。
 
 验收：演示画像 + 12 条样本能生成可渲染 `Plan`；0 小时全待安排；12→6 后移；第 8 学期不越界。
 
 ## 对接前端
 
-服务默认 `http://127.0.0.1:8000`；前端配 `VITE_API_BASE`，新增 `api.ts` 并把 `store.generate` 改 async。未配置时仍用本地 `createPlan`，远程失败不静默回退。
+已接入：服务默认 `http://127.0.0.1:8000`；前端在 `.env` 配置 `VITE_API_BASE`，`src/api.ts` 调用 `/api/plan`，`store.generate` 为 async。未配置时仍用本地 `createPlan`，远程失败不静默回退。

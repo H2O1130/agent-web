@@ -3,6 +3,7 @@ dist/
 tmp/
 test-results/
 playwright-report/
+output/
 *.local
 .vite/
 
