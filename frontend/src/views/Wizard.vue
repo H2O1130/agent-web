@@ -161,9 +161,10 @@ function goBack(): void {
   focusHeading()
 }
 
-function submitPlan(): void {
+async function submitPlan(): Promise<void> {
+  error.value = ''
   try {
-    store.generate(store.profile, store.selectedIds)
+    await store.generate(store.profile, store.selectedIds)
     router.push('/roadmap')
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请检查填写内容后重试。'
@@ -188,7 +189,7 @@ async function next(): Promise<void> {
     return
   }
 
-  submitPlan()
+  await submitPlan()
 }
 
 function restart(): void {
@@ -473,7 +474,7 @@ function restart(): void {
           </button>
           <RouterLink v-else to="/" class="button secondary"><ArrowLeft :size="17" />稍后再来</RouterLink>
           <span class="autosave"><CircleCheck :size="14" />进度自动保存到本机</span>
-          <button class="button primary" type="submit">{{ nextLabel }}<ArrowRight :size="17" /></button>
+          <button class="button primary" type="submit" :disabled="store.generating">{{ store.generating ? '生成中…' : nextLabel }}<ArrowRight :size="17" /></button>
         </div>
       </form>
     </section>

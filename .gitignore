@@ -5,3 +5,8 @@ test-results/
 playwright-report/
 *.local
 .vite/
+
+# 环境变量：保留示例，忽略真实密钥
+.env
+.env.*
+!.env.example

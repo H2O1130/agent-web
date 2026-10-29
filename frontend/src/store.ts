@@ -2,8 +2,8 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { clone } from './clone'
 import { defaultProfile, demoJobs } from './data'
-import { createPlan } from './planning'
-import type { CareerPath, Job, Plan, Profile, Role } from './types'
+import { planPhase, replanPhase } from './services/orchestrator'
+import type { CareerPath, Job, Plan, Profile, Role, TaskChange } from './types'
 
 const STORAGE_KEY = 'pathpilot-workspace'
 const STEP_COUNT = 6
@@ -86,6 +86,7 @@ export const useWorkspace = defineStore('workspace', () => {
   const hasDraft = ref(false)
   const completed = ref<Record<string, string[]>>({})
   const storageWarning = ref('')
+  const generating = ref(false)
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -170,17 +171,45 @@ export const useWorkspace = defineStore('workspace', () => {
     step.value = 1
   }
 
-  function generate(next: Profile, ids: string[]): Plan {
+  /** 阶段 4：生成新方案（模型模式走 /api/plan，失败直接抛错，不降级）。 */
+  async function generate(next: Profile, ids: string[]): Promise<Plan> {
     const chosenJobs = jobs.value.filter(job => ids.includes(job.id) && job.role === next.role)
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
-    const plan = createPlan(next, chosenJobs, latestVersion + 1)
 
-    plans.value.unshift(plan)
-    activeId.value = plan.id
-    profile.value = clone(next)
-    selectedIds.value = [...ids]
-    hasDraft.value = true
-    return plan
+    generating.value = true
+    try {
+      const plan = await planPhase(next, chosenJobs, latestVersion + 1)
+      plans.value.unshift(plan)
+      activeId.value = plan.id
+      profile.value = clone(next)
+      selectedIds.value = [...ids]
+      hasDraft.value = true
+      return plan
+    } finally {
+      generating.value = false
+    }
+  }
+
+  /** 阶段 6：在同一份方案上调整（模型模式走 /api/plan/replan，返回后端计算的变更）。 */
+  async function replan(
+    before: Plan,
+    next: Profile,
+    ids: string[],
+  ): Promise<{ plan: Plan; changes: TaskChange[] }> {
+    const chosenJobs = jobs.value.filter(job => ids.includes(job.id) && job.role === next.role)
+
+    generating.value = true
+    try {
+      const result = await replanPhase(before, next, chosenJobs)
+      plans.value.unshift(result.plan)
+      activeId.value = result.plan.id
+      profile.value = clone(next)
+      selectedIds.value = [...ids]
+      hasDraft.value = true
+      return result
+    } finally {
+      generating.value = false
+    }
   }
 
   function reset(): void {
@@ -205,11 +234,13 @@ export const useWorkspace = defineStore('workspace', () => {
     hasDraft,
     completed,
     storageWarning,
+    generating,
     selectedJobs,
     activePlan,
     stale,
     loadDemo,
     generate,
+    replan,
     reset,
   }
 })

@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { ArrowUpRight, Check, ChevronDown, FileText, Plus, X } from '@lucide/vue'
 import { useWorkspace } from '../store'
 import { roleNames } from '../data'
+import { MODEL_ENABLED, importPhase } from '../services/orchestrator'
+import type { Job } from '../types'
 
 const store = useWorkspace()
 
@@ -13,13 +15,16 @@ const selectionLabel = computed(() =>
 
 const expanded = ref('')
 const importing = ref(false)
+const busy = ref(false)
 const title = ref('')
 const text = ref('')
 const url = ref('')
 const date = ref('')
 const error = ref('')
 
-function addJob(): void {
+async function addJob(): Promise<void> {
+  if (busy.value) return
+
   if (!text.value.trim()) {
     error.value = '请粘贴招聘要求原文。'
     return
@@ -30,20 +35,31 @@ function addJob(): void {
     return
   }
 
-  const id = `import-${crypto.randomUUID()}`
-  store.jobs.push({
-    id,
-    role: store.profile.role,
-    title: title.value.trim() || '导入的岗位',
-    company: '用户导入',
-    education: '见原文',
-    text: text.value.trim(),
-    source: 'imported',
-    url: url.value.trim(),
-    collectedAt: date.value,
-  })
-  store.selectedIds.push(id)
-  resetForm()
+  busy.value = true
+  error.value = ''
+  try {
+    const job: Job = MODEL_ENABLED
+      ? await importPhase(url.value.trim(), text.value.trim(), store.profile.role)
+      : {
+          id: `import-${crypto.randomUUID()}`,
+          role: store.profile.role,
+          title: title.value.trim() || '导入的岗位',
+          company: '用户导入',
+          education: '见原文',
+          text: text.value.trim(),
+          source: 'imported',
+          url: url.value.trim(),
+          collectedAt: date.value,
+        }
+
+    store.jobs.push(job)
+    store.selectedIds.push(job.id)
+    resetForm()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '导入失败，请稍后重试。'
+  } finally {
+    busy.value = false
+  }
 }
 
 function resetForm(): void {
@@ -106,7 +122,7 @@ function toggleExpanded(id: string): void {
       </div>
 
       <p v-if="error" class="error-text" role="alert">{{ error }}</p>
-      <button type="button" class="button primary small" @click="addJob">添加并选中</button>
+      <button type="button" class="button primary small" :disabled="busy" @click="addJob">{{ busy ? '解析中…' : '添加并选中' }}</button>
     </div>
 
     <div class="job-list">

@@ -6,7 +6,7 @@ import { clone } from '../clone'
 import { pathNames, roleNames, taskPeriod } from '../data'
 import { diffPlans } from '../planning'
 import { useWorkspace } from '../store'
-import type { CareerPath, Plan, Profile } from '../types'
+import type { CareerPath, Plan, Profile, TaskChange } from '../types'
 
 const store = useWorkspace()
 
@@ -16,10 +16,12 @@ const snapshot = store.activePlan
 const original = ref<Plan | undefined>(snapshot ? clone(snapshot) : undefined)
 const draft = ref<Profile | undefined>(original.value ? clone(original.value.profile) : undefined)
 const result = ref<Plan>()
+const serverChanges = ref<TaskChange[]>()
 const error = ref('')
 const activeStatus = ref('全部')
 
 const changes = computed(() => {
+  if (serverChanges.value) return serverChanges.value
   if (!original.value || !result.value) return []
   return diffPlans(original.value, result.value)
 })
@@ -39,19 +41,22 @@ function choosePath(key: string): void {
   draft.value.path = key as CareerPath
 }
 
-function adjust(): void {
+async function adjust(): Promise<void> {
   const nextProfile = draft.value
   const base = original.value
   if (!nextProfile || !base) return
 
   error.value = ''
+  serverChanges.value = undefined
 
   const jobIds = nextProfile.role === base.profile.role
     ? base.jobIds
     : store.jobs.filter(job => job.role === nextProfile.role && job.source === 'demo').map(job => job.id)
 
   try {
-    result.value = store.generate(nextProfile, jobIds)
+    const { plan, changes: nextChanges } = await store.replan(base, nextProfile, jobIds)
+    result.value = plan
+    serverChanges.value = nextChanges
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请检查调整条件后重试。'
   }
@@ -61,7 +66,7 @@ function applyHoursDemo(): void {
   if (!draft.value) return
 
   draft.value.hours = 6
-  adjust()
+  void adjust()
 }
 </script>
 
@@ -123,7 +128,7 @@ function applyHoursDemo(): void {
           <p class="small-label">考研安排是可修改的路径假设，不代替个人选择。</p>
           <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
-          <button class="button primary full-width" @click="adjust">调整成长方案 <ArrowRight :size="17" /></button>
+          <button class="button primary full-width" :disabled="store.generating" @click="adjust">{{ store.generating ? '调整中…' : '调整成长方案' }} <ArrowRight :size="17" /></button>
           <button class="demo-adjust" @click="applyHoursDemo">
             <RefreshCw :size="15" />一键演示：每周 12 小时改为 6 小时
           </button>

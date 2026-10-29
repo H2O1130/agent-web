@@ -101,9 +101,10 @@ function openSnapshot(): void {
   router.push('/roadmap')
 }
 
-function generate(): void {
+async function generate(): Promise<void> {
+  error.value = ''
   try {
-    store.generate(store.profile, store.selectedIds)
+    await store.generate(store.profile, store.selectedIds)
     router.push('/roadmap')
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请先选择岗位样本再生成路线。'
@@ -120,7 +121,7 @@ function generate(): void {
         <p>把招聘原文中的能力要求，连接到课程与实践成果。</p>
       </div>
 
-      <button v-if="!snapshot" class="button primary" @click="generate">生成成长路线<ArrowRight :size="17" /></button>
+      <button v-if="!snapshot" class="button primary" :disabled="store.generating" @click="generate">{{ store.generating ? '生成中…' : '生成成长路线' }}<ArrowRight :size="17" /></button>
       <button v-else class="button secondary" @click="openSnapshot">返回这份路线<ArrowRight :size="17" /></button>
     </div>
 

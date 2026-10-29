@@ -1,0 +1,15 @@
+{
+  "name": "pathpilot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "学途 PathPilot 模型调用入口（8.4 四端点，零依赖）",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "check": "node --check src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
