@@ -267,7 +267,7 @@ from skill_merger import (
 
 ## 9. 测试
 
-在仓库根目录 `agent-web/` 执行：
+在后端目录 `agent-web/backend/` 执行：
 
 ```sh
 python -m unittest discover -s skill_merger/tests -v
