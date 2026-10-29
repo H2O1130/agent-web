@@ -1,0 +1,57 @@
+[
+  {
+    "id": "programming",
+    "name": "编程基础",
+    "aliases": ["编程", "程序设计", "编程基础", "程序设计基础"]
+  },
+  {
+    "id": "html",
+    "name": "HTML / CSS",
+    "aliases": ["HTML", "CSS", "HTML/CSS", "网页样式"]
+  },
+  {
+    "id": "javascript",
+    "name": "JavaScript",
+    "aliases": ["JavaScript", "JS", "ECMAScript"]
+  },
+  {
+    "id": "typescript",
+    "name": "TypeScript",
+    "aliases": ["TypeScript", "TS"]
+  },
+  {
+    "id": "vue",
+    "name": "Vue",
+    "aliases": ["Vue", "Vue.js", "VueJS"]
+  },
+  {
+    "id": "git",
+    "name": "Git",
+    "aliases": ["Git", "版本控制"]
+  },
+  {
+    "id": "python",
+    "name": "Python",
+    "aliases": ["Python", "Python3"]
+  },
+  {
+    "id": "sql",
+    "name": "SQL",
+    "aliases": ["SQL", "数据库", "关系型数据库"]
+  },
+  {
+    "id": "api",
+    "name": "API / 接口",
+    "aliases": ["API", "接口", "接口开发", "接口设计", "RESTful API"]
+  },
+  {
+    "id": "testing",
+    "name": "软件测试",
+    "aliases": ["测试", "软件测试", "自动化测试", "单元测试"]
+  },
+  {
+    "id": "communication",
+    "name": "沟通协作",
+    "aliases": ["沟通", "协作", "沟通协作", "团队协作", "沟通能力"]
+  }
+]
