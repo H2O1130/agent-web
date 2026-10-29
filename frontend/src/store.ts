@@ -1,5 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { remotePlanEnabled, requestPlan } from './api'
 import { clone } from './clone'
 import { defaultProfile, demoJobs } from './data'
 import { createPlan } from './planning'
@@ -86,6 +87,7 @@ export const useWorkspace = defineStore('workspace', () => {
   const hasDraft = ref(false)
   const completed = ref<Record<string, string[]>>({})
   const storageWarning = ref('')
+  const generating = ref(false)
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -170,17 +172,28 @@ export const useWorkspace = defineStore('workspace', () => {
     step.value = 1
   }
 
-  function generate(next: Profile, ids: string[]): Plan {
+  async function generate(next: Profile, ids: string[]): Promise<Plan> {
+    if (generating.value) throw new Error('正在生成方案，请稍候。')
+
     const chosenJobs = jobs.value.filter(job => ids.includes(job.id) && job.role === next.role)
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
-    const plan = createPlan(next, chosenJobs, latestVersion + 1)
+    const version = latestVersion + 1
 
-    plans.value.unshift(plan)
-    activeId.value = plan.id
-    profile.value = clone(next)
-    selectedIds.value = [...ids]
-    hasDraft.value = true
-    return plan
+    generating.value = true
+    try {
+      const plan = remotePlanEnabled()
+        ? await requestPlan(next, chosenJobs, version)
+        : createPlan(next, chosenJobs, version)
+
+      plans.value.unshift(plan)
+      activeId.value = plan.id
+      profile.value = clone(next)
+      selectedIds.value = [...ids]
+      hasDraft.value = true
+      return plan
+    } finally {
+      generating.value = false
+    }
   }
 
   function reset(): void {
@@ -205,6 +218,7 @@ export const useWorkspace = defineStore('workspace', () => {
     hasDraft,
     completed,
     storageWarning,
+    generating,
     selectedJobs,
     activePlan,
     stale,
