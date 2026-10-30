@@ -371,6 +371,7 @@ macOS / Linux 用 `source .venv/bin/activate`。离线用例全部使用假模�
 
 ## 12. 已知差异与后续
 
+- 统一接口（端点、请求/响应、错误码、模型入口语义）见仓库根 `接口契约.md`：本模块对应第 3.2 节 `POST /api/mapping` 与第 5 节 `callModel(prompt) -> 原始文本`，`MappingRow` 字段与该文件一致。
 - `frontend/src/data.ts` 中 `api` 的课程名为「软件工程 / Web 开发」，`planning.ts` 与资料表为「Web 开发 / 软件工程」。以 `planning.ts` 为准，`test_contract.py` 单独登记该差异；前端切换映射数据源时需一并统一。
 - 资料表 `skillIds` 不区分「主讲该技能」与「以该技能为工具」。live 实测中，画像已修 Python 课程时模型把 `python` 映射到「软件测试（选做）」（用 Python 写测试），理由成立但不是入门课。若要收紧，可在资料表增加 `primarySkillIds` 并让提示词优先主讲课程；按 2026-10-30 决定，暂不做固定课程限制。
 - 模型 `temperature=0.2`，同一输入多次调用不保证课程完全一致；历史方案对比可能因此出现课程变化，需要在展示层说明。
