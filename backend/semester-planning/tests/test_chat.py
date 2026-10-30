@@ -98,3 +98,85 @@ def test_empty_message_returns_400(client, profile):
 
     assert response.status_code == 400
     assert response.json()["code"] == "EMPTY_MESSAGE"
+
+
+def test_proposal_can_add_custom_tasks(client, profile):
+    task = {
+        "id": "java-basics",
+        "title": "Java 语法与集合",
+        "action": "完成 20 道集合与字符串练习",
+        "done": "能独立写出 ArrayList / HashMap 的增删改查",
+        "weeks": 2,
+        "kind": "专项",
+        "moduleName": "Java",
+    }
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient(
+        [
+            {
+                "reply": "我把 Python 换成 Java，先补语法和集合。",
+                "proposal": {
+                    "summary": "Python 换成 Java",
+                    "profile": profile.model_dump(),
+                    "customTasks": [task],
+                    "dropModules": ["python"],
+                },
+            }
+        ]
+    )
+
+    response = client.post("/api/chat", json=_payload(profile))
+
+    assert response.status_code == 200
+    proposal = response.json()["proposal"]
+    assert proposal["dropModules"] == ["python"]
+    assert proposal["customTasks"][0]["id"] == "custom-java-basics"
+
+
+def test_custom_task_with_bad_weeks_is_rejected(client, profile):
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient(
+        [
+            {
+                "reply": "加一个任务。",
+                "proposal": {
+                    "summary": "新增任务",
+                    "profile": profile.model_dump(),
+                    "customTasks": [
+                        {
+                            "id": "slow",
+                            "title": "超长任务",
+                            "action": "做很久",
+                            "done": "做完",
+                            "weeks": 30,
+                            "kind": "专项",
+                        }
+                    ],
+                },
+            }
+        ]
+    )
+
+    response = client.post("/api/chat", json=_payload(profile))
+
+    assert response.status_code == 200
+    assert response.json()["proposal"]["customTasks"][0]["weeks"] == 3
+
+
+def test_unknown_drop_module_is_ignored(client, profile):
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient(
+        [
+            {
+                "reply": "去掉一些模块。",
+                "proposal": {
+                    "summary": "直接去掉",
+                    "profile": profile.model_dump(),
+                    "customTasks": [],
+                    "dropModules": ["python", "../../etc", "math"],
+                },
+            }
+        ]
+    )
+
+    response = client.post("/api/chat", json=_payload(profile))
+
+    assert response.status_code == 200
+    assert response.json()["proposal"]["dropModules"] == ["python"]

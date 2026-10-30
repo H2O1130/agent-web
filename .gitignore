@@ -16,3 +16,7 @@ __pycache__/
 .ruff_cache/
 .env
 !.env.example
+
+# 编辑器
+.idea/
+.vscode/

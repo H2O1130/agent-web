@@ -6,6 +6,7 @@ from app.core.errors import ApiError
 from app.llm.chat_prompt import build_chat_messages
 from app.llm.client import LLMInvalidOutput, LLMTimeout, LLMUnavailable
 from app.models import ChatRequest, ChatResponse, Profile
+from app.services.micro_catalog import DROPPABLE_MODULES, normalize_custom_tasks
 
 
 def create_reply(request: ChatRequest, client) -> ChatResponse:
@@ -54,13 +55,32 @@ def create_reply(request: ChatRequest, client) -> ChatResponse:
             "LLM_INVALID_PROFILE",
             "模型给出的调整超出允许范围，请换个说法再试。",
         )
-        if proposal.profile.model_dump() == request.profile.model_dump():
+
+        custom_tasks = normalize_custom_tasks(
+            proposal.customTasks,
+            502,
+            "LLM_INVALID_TASKS",
+        )
+        clean_tasks = [
+            item.model_copy(update={"id": task.id, "weeks": task.weeks})
+            for item, task in zip(proposal.customTasks, custom_tasks)
+        ]
+        drop_modules = [module for module in proposal.dropModules if module in DROPPABLE_MODULES]
+
+        profile_changed = proposal.profile.model_dump() != request.profile.model_dump()
+        if not profile_changed and not clean_tasks and not drop_modules:
             return ChatResponse(reply=reply, proposal=None)
 
         summary = proposal.summary.strip() or "调整画像参数"
         return ChatResponse(
             reply=reply,
-            proposal=proposal.model_copy(update={"summary": summary}),
+            proposal=proposal.model_copy(
+                update={
+                    "summary": summary,
+                    "customTasks": clean_tasks,
+                    "dropModules": drop_modules,
+                }
+            ),
         )
 
     raise ApiError(last_status, last_code, last_message)

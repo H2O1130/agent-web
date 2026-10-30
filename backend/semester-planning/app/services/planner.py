@@ -9,7 +9,12 @@ from app.llm.prompt import build_feedback, build_messages
 from app.llm.schema import LLMPlan
 from app.models import Plan, PlanRequest
 from app.services.job_analysis import extract_skills
-from app.services.micro_catalog import available_micro_tasks, required_micro_ids
+from app.services.micro_catalog import (
+    available_micro_tasks,
+    catalog_with_custom,
+    normalize_custom_tasks,
+    required_micro_ids,
+)
 from app.services.plan_builder import build_paused_plan, build_plan
 from app.services.validator import validate_periods
 
@@ -31,11 +36,14 @@ def create_plan(request: PlanRequest, client) -> Plan:
             "暂未识别到支持的技能，请补充岗位文本或选择示例样本。",
         )
 
-    catalog = available_micro_tasks(request.profile)
-    required_ids = required_micro_ids(
-        request.profile,
-        {stat.id for stat in analysis},
-    )
+    custom_tasks = normalize_custom_tasks(request.customTasks)
+    catalog = catalog_with_custom(request.profile, custom_tasks, request.dropModules)
+    catalog_ids = {task.id for task in catalog}
+    required_ids = {
+        task_id
+        for task_id in required_micro_ids(request.profile, {stat.id for stat in analysis})
+        if task_id in catalog_ids
+    }
     if request.profile.hours == 0:
         return build_paused_plan(request, analysis, catalog, required_ids)
 

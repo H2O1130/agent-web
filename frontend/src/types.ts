@@ -111,6 +111,22 @@ export interface Plan {
   semesters?: SemesterPlan[]
   vacations?: VacationPlan[]
   tasks: PlannedTask[]
+  /** AI 在对话里补充的任务，重新生成时带上，否则会丢 */
+  customTasks?: CustomTask[]
+  /** 被替换掉的模块（例如把 python 换成 java），重新生成时保持替换 */
+  dropModules?: string[]
+}
+
+/** AI 补充的任务：目录里没有的方向，让它在对话里现加一条 */
+export interface CustomTask {
+  id: string
+  title: string
+  action: string
+  done: string
+  weeks?: number
+  kind?: PlannedTask['kind']
+  moduleName?: string
+  skills?: string[]
 }
 
 export interface TaskChange {
@@ -130,6 +146,10 @@ export interface ChatMessage {
 export interface ChatProposal {
   summary: string
   profile: Profile
+  /** 想新增的任务（词库里没有的方向，由 AI 现写） */
+  customTasks?: CustomTask[]
+  /** 想替换掉的模块 id */
+  dropModules?: string[]
 }
 
 export interface ChatReply {

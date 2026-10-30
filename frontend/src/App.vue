@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowUpRight, Compass, KeyRound, Menu, X } from '@lucide/vue'
+import { remotePlanEnabled, requestLlmStatus } from './api'
 import LlmSettingsDialog from './components/LlmSettingsDialog.vue'
-import { hasLlmKey } from './llm'
+import { llmSettingsOpen, llmReady, closeLlmSettings, openLlmSettings, setServerLlm } from './llm'
 import { useWorkspace } from './store'
 
 interface NavItem {
@@ -26,8 +27,16 @@ const menuButton = ref<HTMLButtonElement>()
 const mobileMenu = ref<HTMLElement>()
 const main = ref<HTMLElement>()
 
-const settingsOpen = ref(false)
 const settingsButton = ref<HTMLButtonElement>()
+
+onMounted(async () => {
+  if (!remotePlanEnabled()) return
+  try {
+    setServerLlm(await requestLlmStatus())
+  } catch {
+    // 后端没起来时不打扰用户，页面里会有对应提示
+  }
+})
 
 const mobileNavItems = computed<NavItem[]>(() => [
   ...navItems,
@@ -42,11 +51,11 @@ watch(
 )
 
 function openSettings(): void {
-  settingsOpen.value = true
+  openLlmSettings()
 }
 
 async function closeSettings(): Promise<void> {
-  settingsOpen.value = false
+  closeLlmSettings()
   await nextTick()
   settingsButton.value?.focus()
 }
@@ -111,8 +120,8 @@ function menuKeys(event: KeyboardEvent): void {
       </nav>
 
       <div class="header-actions">
-        <span class="demo-badge" :class="{ 'is-live': hasLlmKey }">
-          <span></span>{{ hasLlmKey ? '已接入模型' : '演示模式' }}
+        <span class="demo-badge" :class="{ 'is-live': llmReady }">
+          <span></span>{{ llmReady ? '已接入模型' : '演示模式' }}
         </span>
         <button
           ref="settingsButton"
@@ -165,7 +174,7 @@ function menuKeys(event: KeyboardEvent): void {
     <RouterView />
   </main>
 
-  <LlmSettingsDialog :open="settingsOpen" @close="closeSettings" />
+  <LlmSettingsDialog :open="llmSettingsOpen" @close="closeSettings" />
 
   <footer class="site-footer">
     <div>

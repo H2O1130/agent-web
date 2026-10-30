@@ -123,10 +123,25 @@ class Plan(ApiModel):
     tasks: list[PlannedTask]
 
 
+class CustomTask(ApiModel):
+    """AI 在对话里补充的微任务，用来覆盖目录里没有的技术栈或方向。"""
+
+    id: str
+    title: str
+    action: str
+    done: str
+    weeks: int = 2
+    kind: TaskKind = "专项"
+    moduleName: str = ""
+    skills: list[str] = Field(default_factory=list)
+
+
 class PlanRequest(ApiModel):
     profile: Profile
     jobs: list[Job]
     version: int
+    customTasks: list[CustomTask] = Field(default_factory=list)
+    dropModules: list[str] = Field(default_factory=list)
 
 
 class ChatMessage(ApiModel):
@@ -164,6 +179,8 @@ class ChatRequest(ApiModel):
 class ChatProposal(ApiModel):
     summary: str
     profile: Profile
+    customTasks: list[CustomTask] = Field(default_factory=list)
+    dropModules: list[str] = Field(default_factory=list)
 
 
 class ChatResponse(ApiModel):

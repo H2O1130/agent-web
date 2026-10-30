@@ -1,10 +1,9 @@
+import { apiBase, normalizeBase } from './apiConfig'
 import { llmHeaders, type LlmSettings } from './llm'
-import type { ChatMessage, ChatReply, Job, Plan, Profile } from './types'
-
-const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim().replace(/\/$/, '')
+import type { ChatMessage, ChatReply, CustomTask, Job, Plan, Profile } from './types'
 
 export function remotePlanEnabled(): boolean {
-  return API_BASE.length > 0
+  return apiBase.value.length > 0
 }
 
 function jsonHeaders(using?: LlmSettings): Record<string, string> {
@@ -14,14 +13,32 @@ function jsonHeaders(using?: LlmSettings): Record<string, string> {
   }
 }
 
-export async function requestPlan(profile: Profile, jobs: Job[], version: number): Promise<Plan> {
+export interface PlanExtras {
+  /** AI 在对话里补充的任务 */
+  customTasks?: CustomTask[]
+  /** 要替换掉的模块，例如把 python 换成 java */
+  dropModules?: string[]
+}
+
+export async function requestPlan(
+  profile: Profile,
+  jobs: Job[],
+  version: number,
+  extras: PlanExtras = {},
+): Promise<Plan> {
   let response: Response
 
   try {
-    response = await fetch(`${API_BASE}/api/plan`, {
+    response = await fetch(`${apiBase.value}/api/plan`, {
       method: 'POST',
       headers: jsonHeaders(),
-      body: JSON.stringify({ profile, jobs, version }),
+      body: JSON.stringify({
+        profile,
+        jobs,
+        version,
+        customTasks: extras.customTasks ?? [],
+        dropModules: extras.dropModules ?? [],
+      }),
     })
   } catch {
     throw new Error('无法连接规划服务，请确认后端已启动。')
@@ -114,7 +131,7 @@ export async function requestChat(messages: ChatMessage[], plan: Plan): Promise<
   let response: Response
 
   try {
-    response = await fetch(`${API_BASE}/api/chat`, {
+    response = await fetch(`${apiBase.value}/api/chat`, {
       method: 'POST',
       headers: jsonHeaders(),
       body: JSON.stringify({ messages, profile: plan.profile, plan: buildPlanDigest(plan) }),
@@ -136,11 +153,47 @@ export async function requestChat(messages: ChatMessage[], plan: Plan): Promise<
   return data as unknown as ChatReply
 }
 
-export async function verifyLlmKey(using: LlmSettings): Promise<string> {
+export interface LlmStatus {
+  configured: boolean
+  model: string
+}
+
+/** 只读：服务端有没有配好密钥。普通用户因此不需要自己填 key。 */
+export async function requestLlmStatus(): Promise<LlmStatus> {
+  if (!remotePlanEnabled()) return { configured: false, model: '' }
+
   let response: Response
 
   try {
-    response = await fetch(`${API_BASE}/api/llm/verify`, {
+    response = await fetch(`${apiBase.value}/api/llm/status`)
+  } catch {
+    throw new Error('无法连接规划服务，请确认后端已启动。')
+  }
+
+  const data: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(messageOf(data) ?? '读取模型状态失败，请稍后重试。')
+  }
+
+  if (!isRecord(data) || typeof data.configured !== 'boolean') {
+    throw new Error('模型状态返回的数据格式不正确。')
+  }
+
+  return {
+    configured: data.configured,
+    model: typeof data.model === 'string' ? data.model : '',
+  }
+}
+
+export async function verifyLlmKey(using: LlmSettings, base = apiBase.value): Promise<string> {
+  const target = normalizeBase(base)
+  if (!target) throw new Error('还没有填写后端地址。')
+
+  let response: Response
+
+  try {
+    response = await fetch(`${target}/api/llm/verify`, {
       method: 'POST',
       headers: jsonHeaders(using),
     })
@@ -159,6 +212,30 @@ export async function verifyLlmKey(using: LlmSettings): Promise<string> {
   }
 
   return typeof data.model === 'string' ? data.model : ''
+}
+
+/** 用 /health 确认这个地址后面确实是本项目的后端（不校验密钥）。 */
+export async function probeBackend(base: string): Promise<void> {
+  const target = normalizeBase(base)
+  if (!target) throw new Error('请先填写后端地址。')
+
+  let response: Response
+
+  try {
+    response = await fetch(`${target}/health`, { method: 'GET' })
+  } catch {
+    throw new Error('连不上这个地址，请确认后端已启动、端口填写正确。')
+  }
+
+  if (!response.ok) {
+    throw new Error('这个地址有响应，但不是本项目的后端（/health 不可用）。')
+  }
+
+  const data: unknown = await response.json().catch(() => null)
+
+  if (!isRecord(data) || data.status !== 'ok') {
+    throw new Error('这个地址有响应，但不是本项目的后端（/health 返回异常）。')
+  }
 }
 
 function messageOf(value: unknown): string | undefined {
