@@ -10,6 +10,7 @@ import { remotePlanEnabled, requestPlan } from './api'
 import { defaultProfile } from './data'
 import { useWorkspace } from './store'
 import type { Plan } from './types'
+import { remotePlan } from '../tests/fixtures/remote-plan'
 
 const plan: Plan = {
   id: 'remote-plan',
@@ -48,5 +49,46 @@ describe('store.generate', () => {
 
     expect(store.generating).toBe(false)
     expect(store.plans).toHaveLength(0)
+  })
+
+  it('生成过程中修改输入，不改变已经提交的请求快照', async () => {
+    let finish!: (value: Plan) => void
+    vi.mocked(requestPlan).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const store = useWorkspace()
+    const pending = store.generate(store.profile, store.selectedIds)
+    store.profile.hours = 6
+    store.selectedIds.splice(0)
+
+    expect(vi.mocked(requestPlan).mock.calls[0]![0].hours).toBe(12)
+    const returned = remotePlan({ ...defaultProfile, hours: 12 })
+    finish(returned)
+    await pending
+    expect(store.plans[0]!.profile.hours).toBe(12)
+    expect(store.profile.hours).toBe(6)
+    expect(store.stale).toBe(true)
+  })
+
+  it('生成后端请求未结束时再次点击不会重复请求', async () => {
+    let finish!: (value: Plan) => void
+    vi.mocked(requestPlan).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const store = useWorkspace()
+    const pending = store.generate(store.profile, store.selectedIds)
+    await expect(store.generate(store.profile, store.selectedIds)).rejects.toThrow('正在生成')
+    expect(requestPlan).toHaveBeenCalledTimes(1)
+    finish(remotePlan())
+    await pending
+  })
+
+  it('工作区重置后忽略旧请求，不能把已清空的计划写回来', async () => {
+    let finish!: (value: Plan) => void
+    vi.mocked(requestPlan).mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const store = useWorkspace()
+    const result = store.generate(store.profile, store.selectedIds).catch(error => error as Error)
+    store.reset()
+    finish(remotePlan())
+    expect(await result).toHaveProperty('message', expect.stringContaining('已重置'))
+    expect(store.plans).toHaveLength(0)
+    expect(store.activeId).toBe('')
+    expect(store.generating).toBe(false)
   })
 })
