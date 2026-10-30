@@ -6,7 +6,6 @@ import {
   BookOpen,
   CalendarDays,
   Check,
-  ChevronDown,
   Clock,
   Download,
   Flag,
@@ -15,26 +14,98 @@ import {
   Target,
 } from '@lucide/vue'
 import { useWorkspace } from '../store'
-import { pathNames, roleNames, taskPeriod } from '../data'
+import { pathNames, roleNames } from '../data'
 import type { Plan, PlannedTask } from '../types'
 
-const SEMESTER_COUNT = 8
-const WEEKS_PER_SEMESTER = 16
+const SEMESTER_LABELS = ['大一上', '大一下', '大二上', '大二下', '大三上', '大三下', '大四上', '大四下']
+
+interface PlanPeriod {
+  key: string
+  kind: 'semester' | 'summer' | 'winter'
+  label: string
+  title: string
+  goal: string
+  output: string
+  decision: string
+  itemIds: string[]
+  periodIndex: number
+  semester: number
+}
 
 const store = useWorkspace()
 
 const plan = computed(() => store.activePlan)
+const overview = computed(() => plan.value?.overview)
 const done = computed(() => {
   const current = plan.value
   if (!current) return []
   return store.completed[current.id] ?? []
 })
+const taskMap = computed(() => new Map(plan.value?.tasks.map(task => [task.id, task]) ?? []))
 const scheduled = computed(() => plan.value?.tasks.filter(task => task.semester !== null) ?? [])
 const pending = computed(() => plan.value?.tasks.filter(task => task.semester === null) ?? [])
 const completedCount = computed(
   () => scheduled.value.filter(task => done.value.includes(task.id)).length,
 )
+const periods = computed<PlanPeriod[]>(() => {
+  const current = plan.value
+  if (!current) return []
 
+  const list: PlanPeriod[] = []
+  for (const semester of current.semesters ?? []) {
+    list.push({
+      key: `semester-${semester.semester}`,
+      kind: 'semester',
+      label: semesterLabel(semester.semester),
+      title: semester.title,
+      goal: semester.goal,
+      output: semester.output,
+      decision: semester.decision,
+      itemIds: semester.itemIds,
+      periodIndex: (semester.semester - 1) * 2,
+      semester: semester.semester,
+    })
+  }
+  for (const vacation of current.vacations ?? []) {
+    list.push({
+      key: vacation.id,
+      kind: vacation.kind,
+      label: vacation.label,
+      title: vacation.title,
+      goal: vacation.goal,
+      output: vacation.output,
+      decision: vacation.decision,
+      itemIds: vacation.itemIds,
+      periodIndex: (vacation.afterSemester - 1) * 2 + 1,
+      semester: vacation.afterSemester,
+    })
+  }
+  if (list.length) return list.sort((a, b) => a.periodIndex - b.periodIndex)
+
+  const groups = new Map<number, PlannedTask[]>()
+  for (const task of current.tasks) {
+    if (task.semester === null) continue
+    if ((task.periodKind ?? 'semester') !== 'semester') continue
+    const group = groups.get(task.semester) ?? []
+    group.push(task)
+    groups.set(task.semester, group)
+  }
+
+  return [...groups.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([semester, tasks]) => ({
+      key: `semester-${semester}`,
+      kind: 'semester',
+      label: semesterLabel(semester),
+      title: `第 ${semester} 学期`,
+      goal: '',
+      output: tasks.map(task => task.outcome).join('；'),
+      decision: '',
+      itemIds: tasks.map(task => task.id),
+      periodIndex: (semester - 1) * 2,
+      semester,
+    }))
+})
 const nextTask = computed(() => scheduled.value.find(task => !done.value.includes(task.id)))
 const nextActionTitle = computed(() => {
   if (nextTask.value) return nextTask.value.title
@@ -46,55 +117,18 @@ const nextActionOutcome = computed(() => {
   return '回看成果、核对岗位要求，再决定下一阶段的目标。'
 })
 
-function tasksOf(semester: number): PlannedTask[] {
-  return scheduled.value.filter(task => task.semester === semester)
+function semesterLabel(semester: number): string {
+  return SEMESTER_LABELS[semester - 1] ?? `第 ${semester} 学期`
 }
 
-function semesterSummary(semester: number): string {
-  const current = plan.value
-  if (!current) return ''
-
-  if (semester < current.profile.semester) return '已过去，待核对 · 不自动认定任务已完成'
-
-  const tasks = tasksOf(semester)
-  if (!tasks.length) return '暂未安排 · 为后续变化留出空间'
-
-  return `${tasks.length} 项行动 · 峰值每周 ${peak(tasks)} 小时`
+function tasksOf(period: PlanPeriod): PlannedTask[] {
+  return period.itemIds
+    .map(id => taskMap.value.get(id))
+    .filter((task): task is PlannedTask => Boolean(task))
 }
 
-function isOpen(semester: number): boolean {
-  const current = plan.value
-  if (!current) return false
-  if (semester === current.profile.semester) return true
-
-  const firstPlanned = scheduled.value.find(task => (task.semester ?? 0) > current.profile.semester)
-  return semester > current.profile.semester && semester === firstPlanned?.semester
-}
-
-function peak(tasks: PlannedTask[]): number {
-  const weekly = Array.from({ length: WEEKS_PER_SEMESTER }, (_, index) => {
-    const week = index + 1
-    return tasks
-      .filter(task => task.startWeek !== null && week >= task.startWeek && week < task.startWeek + task.weeks)
-      .reduce((sum, task) => sum + task.hours, 0)
-  })
-
-  return Math.max(0, ...weekly)
-}
-
-function weekRange(task: PlannedTask): string {
-  const start = task.startWeek ?? 0
-  return `${start}—${start + task.weeks - 1} 周`
-}
-
-function taskTitle(id: string): string {
-  const found = plan.value?.tasks.find(task => task.id === id)
-  return found?.title ?? id
-}
-
-function prerequisiteLabel(task: PlannedTask): string {
-  if (!task.prerequisites.length) return '从当前基础开始'
-  return `前置：${task.prerequisites.map(id => taskTitle(id)).join('、')}`
+function weekNote(task: PlannedTask): string {
+  return task.weekNote || `约 ${task.weeks} 周`
 }
 
 function toggleTask(id: string): void {
@@ -114,7 +148,7 @@ function buildExport(current: Plan): string {
   const lines: string[] = [
     `# 学途 PathPilot · 成长计划 V${current.version}`,
     '',
-    '> 演示模式：本地样本与规则计算，不代表实时招聘分析。',
+    '> 演示模式：样本与课程为示例，方案由规则或模型生成。',
     '',
     `专业：${current.profile.major}`,
     `当前学期：${current.profile.semester}`,
@@ -125,15 +159,64 @@ function buildExport(current: Plan): string {
     '',
   ]
 
-  for (const task of current.tasks) {
-    lines.push(`## ${task.title}`)
-    lines.push(`- 安排：${taskPeriod(task)}`)
-    lines.push(`- 每周：${task.hours} 小时，持续 ${task.weeks} 周`)
-    lines.push(`- 成果：${task.outcome}`)
-    lines.push(`- 验收：${task.acceptance}`)
-    lines.push(`- 依据：${task.jobIds.join('、') || '基础支持 / 用户路径选择'}`)
-    lines.push(`- 原因：${task.reason}`)
-    lines.push(`- 状态：${done.value.includes(task.id) ? '已完成（本人标记）' : '待执行'}`)
+  if (current.overview) {
+    const currentOverview = current.overview
+    lines.push('## 规划总览')
+    lines.push(currentOverview.goal)
+    lines.push('')
+    lines.push(currentOverview.strategy)
+    lines.push('')
+    lines.push('### 核心原则')
+    for (const item of currentOverview.principles) lines.push(`- ${item}`)
+    lines.push('')
+    if (currentOverview.stack.length) {
+      lines.push('### 能力与技术栈')
+      lines.push(currentOverview.stack.join('、'))
+      lines.push('')
+    }
+    if (currentOverview.milestones.length) {
+      lines.push('### 关键产出节点')
+      for (const item of currentOverview.milestones) {
+        lines.push(`- 第 ${item.semester} 学期：${item.title}（${item.evidence}）`)
+      }
+      lines.push('')
+    }
+    lines.push('### 决策点')
+    lines.push(currentOverview.decisionPoint)
+    lines.push('')
+  }
+
+  for (const period of periods.value) {
+    lines.push(`## ${period.label} · ${period.title}`)
+    if (period.goal) lines.push(period.goal)
+    lines.push('')
+
+    for (const task of tasksOf(period)) {
+      lines.push(`### ${task.title}（${weekNote(task)}）`)
+      if (task.example) lines.push(`- 示例：${task.example}`)
+      lines.push(`- 做什么：${task.outcome}`)
+      lines.push(`- 完成：${task.acceptance}`)
+      if (task.course) lines.push(`- 课程：${task.course}`)
+      lines.push(`- 原因：${task.reason}`)
+      lines.push(`- 状态：${done.value.includes(task.id) ? '已完成（本人标记）' : '待执行'}`)
+      lines.push('')
+    }
+
+    if (period.output) {
+      lines.push(`> 阶段产出：${period.output}`)
+      lines.push('')
+    }
+    if (period.decision) {
+      lines.push(`> 决策点：${period.decision}`)
+      lines.push('')
+    }
+  }
+
+  if (pending.value.length) {
+    lines.push('## 待安排')
+    for (const task of pending.value) {
+      lines.push(`- ${task.title}：${task.reason}`)
+    }
     lines.push('')
   }
 
@@ -197,126 +280,134 @@ function exportPlan(): void {
         </div>
       </section>
 
-      <div class="route-layout">
-        <section class="semester-timeline">
-          <div class="section-heading">
-            <div>
-              <span class="eyebrow">以学期为单位，向目标靠近</span>
-              <h2>大学四年成长路线</h2>
-            </div>
-            <span class="tag">课程映射为示例</span>
+      <section v-if="overview" class="plan-overview">
+        <div class="overview-heading">
+          <div>
+            <span class="eyebrow">先看整体，再执行每学期</span>
+            <h2>这份规划怎么打</h2>
           </div>
+          <span class="tag">{{ overview.stack.length }} 项能力</span>
+        </div>
 
-          <details
-            v-for="semester in SEMESTER_COUNT"
-            :key="semester"
-            class="semester-block"
-            :class="{ past: semester < plan.profile.semester, 'current-semester': semester === plan.profile.semester }"
-            :open="isOpen(semester)"
-          >
-            <summary>
-              <span class="semester-marker">
-                <Check v-if="semester < plan.profile.semester" :size="15" />
-                <template v-else>{{ semester }}</template>
+        <p class="overview-strategy">{{ overview.strategy }}</p>
+
+        <div class="overview-columns">
+          <section>
+            <h3>核心原则</h3>
+            <ul class="overview-list">
+              <li v-for="item in overview.principles" :key="item">{{ item }}</li>
+            </ul>
+          </section>
+          <section>
+            <h3>能力与技术栈</h3>
+            <div class="overview-stack">
+              <span v-for="item in overview.stack" :key="item" class="tag">{{ item }}</span>
+            </div>
+          </section>
+        </div>
+
+        <section v-if="overview.milestones.length" class="overview-milestones">
+          <h3>关键产出节点</h3>
+          <div class="milestone-row">
+            <article v-for="item in overview.milestones" :key="item.semester">
+              <span>{{ item.label || semesterLabel(item.semester) }}</span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.evidence }}</small>
+            </article>
+          </div>
+        </section>
+
+        <p class="overview-decision"><strong>决策点</strong>{{ overview.decisionPoint }}</p>
+      </section>
+
+      <section class="semester-document">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">以学期为单位，向目标靠近</span>
+            <h2>大学四年成长路线</h2>
+          </div>
+          <span class="tag">课程映射为示例</span>
+        </div>
+
+        <p v-if="!periods.length" class="muted">
+          当前每周预算为 0 或暂未安排学期；恢复时间后重新生成即可。
+        </p>
+
+        <article
+          v-for="period in periods"
+          :key="period.key"
+          class="semester-section"
+          :class="{
+            past: period.kind === 'semester' && period.semester < plan.profile.semester,
+            'current-semester': period.kind === 'semester' && period.semester === plan.profile.semester,
+            vacation: period.kind !== 'semester',
+          }"
+        >
+          <header class="semester-heading">
+            <span class="semester-index">{{ period.label }}</span>
+            <div>
+              <span class="small-label">
+                <template v-if="period.kind === 'semester'">
+                  第 {{ period.semester }} 学期
+                  <span v-if="period.semester === plan.profile.semester"> · 从这里开始</span>
+                  <span v-else-if="period.semester < plan.profile.semester"> · 已过去，待核对</span>
+                </template>
+                <template v-else>假期集中安排</template>
               </span>
-              <div>
-                <h3>
-                  第 {{ semester }} 学期
-                  <span v-if="semester === plan.profile.semester" class="soft-tag">从这里开始</span>
-                </h3>
-                <p>{{ semesterSummary(semester) }}</p>
-              </div>
-              <ChevronDown :size="18" />
-            </summary>
+              <h2>{{ period.title }}</h2>
+              <p v-if="period.goal">{{ period.goal }}</p>
+            </div>
+          </header>
 
-            <div class="semester-body">
-              <p v-if="semester < plan.profile.semester" class="muted">回顾这一阶段的课程与经历，在画像中记录已经接触的技能。</p>
-              <p v-else-if="!tasksOf(semester).length" class="muted">当前样本对应的行动已安排在其他学期。积累实际成果后，再核对目标岗位与能力需求。</p>
+          <ul class="semester-items">
+            <li
+              v-for="task in tasksOf(period)"
+              :key="task.id"
+              :class="{ done: done.includes(task.id) }"
+            >
+              <label class="task-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="done.includes(task.id)"
+                  :aria-label="`标记完成：${task.title}`"
+                  @change="toggleTask(task.id)"
+                />
+                <span><Check v-if="done.includes(task.id)" :size="14" /></span>
+              </label>
 
-              <article
-                v-for="task in tasksOf(semester)"
-                :key="task.id"
-                class="task-card"
-                :class="{ done: done.includes(task.id) }"
-              >
-                <div class="task-card-heading">
-                  <label class="task-checkbox">
-                    <input
-                      type="checkbox"
-                      :checked="done.includes(task.id)"
-                      :aria-label="`标记完成：${task.title}`"
-                      @change="toggleTask(task.id)"
-                    />
-                    <span><Check v-if="done.includes(task.id)" :size="14" /></span>
-                  </label>
-
-                  <div>
-                    <span class="small-label">
-                      第 {{ weekRange(task) }}
-                      <span class="tiny-separator">/</span>
-                      {{ task.kind }}
-                    </span>
-                    <h4>{{ task.title }}</h4>
-                  </div>
-
-                  <span class="task-hours"><Clock :size="13" />{{ task.hours }}h / 周</span>
+              <div class="item-main">
+                <span class="module-tag">{{ task.moduleName || task.kind }}</span>
+                <div class="item-title-row">
+                  <h3>{{ task.title }}</h3>
+                  <span class="week-note">{{ weekNote(task) }}</span>
                 </div>
+                <p class="item-action">{{ task.outcome }}</p>
+                <p class="item-done"><strong>完成</strong>{{ task.acceptance }}</p>
 
-                <div class="task-body">
-                  <p><strong>交付成果</strong>{{ task.outcome }}</p>
-                  <p><strong>如何验收</strong>{{ task.acceptance }}</p>
-                  <p><strong>课程关联</strong>{{ task.course }}</p>
-                  <p v-if="task.kind === '可选'" class="task-reason">{{ task.reason }}</p>
-
-                  <div class="task-bottom">
-                    <span>{{ prerequisiteLabel(task) }}</span>
+                <details class="item-details">
+                  <summary>详情</summary>
+                  <p v-if="task.example"><strong>示例</strong>{{ task.example }}</p>
+                  <p v-if="task.reason"><strong>为什么</strong>{{ task.reason }}</p>
+                  <div class="item-footer">
+                    <span>{{ task.course || '课程关联待核对' }}</span>
                     <RouterLink
                       v-if="task.jobIds.length"
                       :to="`/analysis?skill=${task.skillIds[0]}&plan=${plan.id}`"
                     >查看岗位依据 <ArrowUpRight :size="14" /></RouterLink>
-                    <span v-else>基础支持 / 路径选择</span>
                   </div>
-                </div>
-              </article>
-            </div>
-          </details>
-        </section>
+                </details>
+              </div>
+            </li>
+          </ul>
 
-        <aside class="route-aside">
-          <section class="panel next-action">
-            <span class="icon-tile"><Flag :size="23" /></span>
-            <span class="eyebrow">先从一件事开始</span>
-            <h3>{{ nextActionTitle }}</h3>
-            <p>{{ nextActionOutcome }}</p>
-            <RouterLink :to="`/analysis?plan=${plan.id}`" class="subtle-link">
-              回看岗位要求 <ArrowRight :size="15" />
-            </RouterLink>
-          </section>
-
-          <section class="panel route-explainer">
-            <h3>为什么这样安排？</h3>
-            <div>
-              <span><Check :size="15" /></span>
-              <p><strong>先基础，后专项</strong>任务按前置关系安排，减少跳过基础带来的困难。</p>
-            </div>
-            <div>
-              <span><Check :size="15" /></span>
-              <p><strong>按真实时间做取舍</strong>同一周任务工时总和不超过 {{ plan.profile.hours }} 小时。</p>
-            </div>
-            <div>
-              <span><Check :size="15" /></span>
-              <p><strong>每项行动有成果</strong>用可以检查的作品和过程记录，核对自己的成长。</p>
-            </div>
-          </section>
-
-          <section class="adjust-invitation">
-            <GitBranch :size="23" />
-            <h3>计划跟着你变化。</h3>
-            <p>时间少了一点，或想试试另一个岗位？不必从头开始。</p>
-            <RouterLink to="/adjust">调整我的方案 <ArrowRight :size="16" /></RouterLink>
-          </section>
-        </aside>
-      </div>
+          <div v-if="period.output" class="semester-output">
+            <strong>阶段产出</strong>{{ period.output }}
+          </div>
+          <p v-if="period.decision" class="semester-decision">
+            <strong>决策点</strong>{{ period.decision }}
+          </p>
+        </article>
+      </section>
 
       <section v-if="pending.length" class="panel pending-panel">
         <div class="panel-heading">
@@ -331,9 +422,21 @@ function exportPlan(): void {
           <article v-for="task in pending" :key="task.id">
             <h3>{{ task.title }}</h3>
             <p>{{ task.reason }}</p>
-            <span class="small-label">需要 {{ task.hours }} 小时 / 周 · 持续 {{ task.weeks }} 周</span>
+            <span class="small-label">约 {{ task.weeks }} 周</span>
           </article>
         </div>
+      </section>
+
+      <section class="document-footer">
+        <div>
+          <Flag :size="20" />
+          <div>
+            <span class="eyebrow">先从一件事开始</span>
+            <h3>{{ nextActionTitle }}</h3>
+            <p>{{ nextActionOutcome }}</p>
+          </div>
+        </div>
+        <RouterLink to="/adjust" class="button secondary">调整我的方案 <ArrowRight :size="16" /></RouterLink>
       </section>
     </template>
 

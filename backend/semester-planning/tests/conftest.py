@@ -46,24 +46,61 @@ def jobs() -> list[Job]:
 @pytest.fixture
 def valid_llm_plan() -> dict:
     return {
-        "tasks": [
-            {"id": "git", "semester": 3, "startWeek": 1, "reason": "建立协作习惯"},
-            {"id": "html", "semester": 3, "startWeek": 1, "reason": "页面基础"},
-            {"id": "javascript", "semester": 3, "startWeek": 4, "reason": "交互基础"},
-            {"id": "typescript", "semester": 3, "startWeek": 8, "reason": "类型基础"},
-            {"id": "vue", "semester": 3, "startWeek": 11, "reason": "框架实践"},
+        "strategy": "学期内先补页面和交互，寒假集中做校验与可访问性，第 4 学期用项目串起来；每周 12 小时，不把时间排满。",
+        "periods": [
             {
-                "id": "frontend-extension",
+                "kind": "semester",
                 "semester": 3,
-                "startWeek": 8,
-                "reason": "可访问性练习",
+                "title": "第 3 学期 · 打牢基础",
+                "goal": "完成页面结构和基础交互。",
+                "output": "一个能在手机和桌面打开的社团页。",
+                "decision": "",
+                "items": [
+                    {"id": "git-repo", "weeks": "第 1 周"},
+                    {"id": "html-semantic", "weeks": "第 1—2 周"},
+                    {"id": "html-responsive", "weeks": "第 3 周"},
+                    {"id": "js-dom", "weeks": "第 4—5 周"},
+                ],
             },
             {
-                "id": "frontend-project",
-                "semester": 4,
-                "startWeek": 1,
-                "reason": "综合项目",
+                "kind": "winter",
+                "semester": 3,
+                "title": "大二寒假 · 集中补交互",
+                "goal": "把表单校验和可访问性一次做完。",
+                "output": "一个支持校验和键盘操作的报名表单。",
+                "decision": "",
+                "items": [
+                    {"id": "js-validate", "weeks": "约 2 周"},
+                    {"id": "ext-accessibility", "weeks": "约 1 周"},
+                ],
             },
-            {"id": "portfolio", "semester": 4, "startWeek": 7, "reason": "作品整理"},
-        ]
+            {
+                "kind": "semester",
+                "semester": 4,
+                "title": "打通交互与类型",
+                "goal": "把类型、组件和状态用到真实页面。",
+                "output": "一个有类型和共享状态的 Vue 页面。",
+                "decision": "",
+                "items": [
+                    {"id": "ts-types", "weeks": "第 1—2 周"},
+                    {"id": "vue-component", "weeks": "第 3—4 周"},
+                    {"id": "vue-state", "weeks": "第 5—6 周"},
+                    {"id": "html-form", "weeks": "第 7 周"},
+                ],
+            },
+            {
+                "kind": "summer",
+                "semester": 4,
+                "title": "项目与作品集",
+                "goal": "用一个完整项目把技能串起来。",
+                "output": "可演示的报名系统与一页作品集。",
+                "decision": "项目做不完时优先缩小范围，不增加每周时间。",
+                "items": [
+                    {"id": "project-scope", "weeks": "约 1 周"},
+                    {"id": "project-build", "weeks": "约 3 周"},
+                    {"id": "portfolio-page", "weeks": "约 1 周"},
+                    {"id": "project-deploy", "weeks": "约 1 周"},
+                ],
+            },
+        ],
     }

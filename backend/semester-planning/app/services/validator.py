@@ -1,128 +1,136 @@
-from app.data.tasks import TaskTemplate
-from app.llm.schema import LLMTask
+from app.data.micro_tasks import MicroTask
+from app.llm.schema import LLMPeriod
 from app.models import Profile
+from app.services.micro_catalog import prerequisites_for
 
-WEEKS_PER_SEMESTER = 16
 SEMESTERS_IN_PLAN = 8
+WINTER_SEMESTERS = {1, 3, 5, 7}
+SUMMER_SEMESTERS = {2, 4, 6, 8}
+SEMESTER_MIN = 3
+SEMESTER_MAX = 5
+VACATION_MIN = 2
+VACATION_MAX = 4
 
 
-def validate_tasks(
-    tasks: list[LLMTask],
+def validate_periods(
+    periods: list[LLMPeriod],
     profile: Profile,
-    catalog: list[TaskTemplate],
+    catalog: list[MicroTask],
     required_ids: set[str],
 ) -> list[str]:
     errors: list[str] = []
     catalog_map = {task.id: task for task in catalog}
+    position: dict[str, tuple[int, int]] = {}
     seen: set[str] = set()
-    scheduled: dict[str, LLMTask] = {}
+    seen_periods: set[tuple[str, int]] = set()
 
-    for task in tasks:
-        if task.id not in catalog_map:
-            errors.append(f"未知任务 id：{task.id}")
-        if task.id in seen:
-            errors.append(f"任务 id 重复：{task.id}")
-        seen.add(task.id)
+    for period in periods:
+        key = (period.kind, period.semester)
+        if key in seen_periods:
+            errors.append(f"{_period_name(period.kind, period.semester)}重复")
+        seen_periods.add(key)
+
+        _validate_period_time(period, profile, errors)
+        _validate_period_text(period, errors)
+        _validate_density(period, errors)
+
+        period_index = _period_index(period.kind, period.semester)
+        for index, item in enumerate(period.items):
+            if item.id not in catalog_map:
+                errors.append(f"未知微任务 id：{item.id}")
+                continue
+            if item.id in seen:
+                errors.append(f"微任务 id 重复：{item.id}")
+                continue
+            seen.add(item.id)
+            position[item.id] = (period_index, index)
 
     missing = required_ids - seen
     if missing:
-        errors.append("缺少必需任务：" + "、".join(sorted(missing)))
+        errors.append("缺少必需微任务：" + "、".join(sorted(missing)))
 
-    for task in tasks:
-        template = catalog_map.get(task.id)
-        if template is None:
-            continue
+    if not seen:
+        errors.append("没有安排任何微任务")
 
-        if not task.reason.strip():
-            errors.append(f"{task.id} 缺少 reason")
-
-        if task.semester is None:
-            if task.startWeek is not None:
-                errors.append(f"{task.id} 待安排时 startWeek 必须为 null")
-            continue
-
-        if not _is_int(task.semester):
-            errors.append(f"{task.id} 的 semester 必须是整数")
-            continue
-        if not profile.semester <= task.semester <= SEMESTERS_IN_PLAN:
-            errors.append(
-                f"{task.id} 的 semester {task.semester} 不在 "
-                f"{profile.semester}—{SEMESTERS_IN_PLAN} 之间"
-            )
-
-        if not _is_int(task.startWeek):
-            errors.append(f"{task.id} 的 startWeek 必须是整数")
-            continue
-        if not 1 <= task.startWeek <= WEEKS_PER_SEMESTER:
-            errors.append(f"{task.id} 的 startWeek {task.startWeek} 不在 1—16 之间")
-            continue
-        if task.startWeek + template.weeks - 1 > WEEKS_PER_SEMESTER:
-            errors.append(
-                f"{task.id} 跨学期：{task.startWeek} 周开始、持续 {template.weeks} 周"
-            )
-
-        scheduled[task.id] = task
-
-    _validate_prerequisites(scheduled, catalog_map, errors)
-    _validate_weekly_load(scheduled, catalog_map, profile, errors)
-
-    if profile.hours == 0 and scheduled:
-        errors.append("每周预算为 0 时所有任务都应为待安排")
+    for period in periods:
+        period_index = _period_index(period.kind, period.semester)
+        for index, item in enumerate(period.items):
+            task = catalog_map.get(item.id)
+            if task is None:
+                continue
+            for prerequisite in prerequisites_for(task, profile):
+                if prerequisite not in position:
+                    errors.append(f"{item.id} 的前置微任务 {prerequisite} 未安排")
+                elif position[prerequisite] >= (period_index, index):
+                    errors.append(f"{item.id} 排在前置微任务 {prerequisite} 之前")
 
     return errors
 
 
-def _validate_prerequisites(
-    scheduled: dict[str, LLMTask],
-    catalog_map: dict[str, TaskTemplate],
-    errors: list[str],
-) -> None:
-    for task_id, task in scheduled.items():
-        template = catalog_map[task_id]
-        for prerequisite_id in template.prerequisites:
-            prerequisite = scheduled.get(prerequisite_id)
-            if prerequisite is None:
-                errors.append(f"{task_id} 的前置任务 {prerequisite_id} 未安排")
-                continue
-
-            prerequisite_template = catalog_map[prerequisite_id]
-            prerequisite_end = (
-                (prerequisite.semester - 1) * WEEKS_PER_SEMESTER
-                + prerequisite.startWeek
-                + prerequisite_template.weeks
-                - 1
-            )
-            task_start = (task.semester - 1) * WEEKS_PER_SEMESTER + task.startWeek
-            if prerequisite_end > task_start:
-                errors.append(f"{task_id} 排在前置任务 {prerequisite_id} 结束之前")
-
-
-def _validate_weekly_load(
-    scheduled: dict[str, LLMTask],
-    catalog_map: dict[str, TaskTemplate],
+def _validate_period_time(
+    period: LLMPeriod,
     profile: Profile,
     errors: list[str],
 ) -> None:
-    if profile.hours <= 0:
+    name = _period_name(period.kind, period.semester)
+
+    if period.kind == "semester":
+        if not profile.semester <= period.semester <= SEMESTERS_IN_PLAN:
+            errors.append(
+                f"第 {period.semester} 学期不在 "
+                f"{profile.semester}—{SEMESTERS_IN_PLAN} 之间"
+            )
         return
 
-    loads: dict[tuple[int, int], int] = {}
-    for task_id, task in scheduled.items():
-        template = catalog_map[task_id]
-        for week in range(task.startWeek, task.startWeek + template.weeks):
-            key = (task.semester, week)
-            loads[key] = loads.get(key, 0) + template.hours
-
-    overloaded = [
-        (semester, week, load)
-        for (semester, week), load in sorted(loads.items())
-        if load > profile.hours
-    ]
-    for semester, week, load in overloaded[:10]:
-        errors.append(
-            f"第 {semester} 学期第 {week} 周工时 {load} 超过预算 {profile.hours}"
-        )
+    allowed = WINTER_SEMESTERS if period.kind == "winter" else SUMMER_SEMESTERS
+    if period.semester not in allowed:
+        errors.append(f"{name} 的学期位置不正确")
+    if period.semester < profile.semester:
+        errors.append(f"{name} 已经过去，不应再安排")
 
 
-def _is_int(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
+def _validate_period_text(period: LLMPeriod, errors: list[str]) -> None:
+    name = _period_name(period.kind, period.semester)
+    if not period.title.strip():
+        errors.append(f"{name}缺少 title")
+    elif len(period.title.strip()) > 30:
+        errors.append(f"{name}的 title 太长")
+    if not period.goal.strip():
+        errors.append(f"{name}缺少 goal")
+    elif len(period.goal.strip()) > 60:
+        errors.append(f"{name}的 goal 太长")
+    if not period.output.strip():
+        errors.append(f"{name}缺少 output")
+    elif len(period.output.strip()) > 80:
+        errors.append(f"{name}的 output 太长")
+    if not period.items:
+        errors.append(f"{name}没有任务")
+
+
+def _validate_density(period: LLMPeriod, errors: list[str]) -> None:
+    count = len(period.items)
+    name = _period_name(period.kind, period.semester)
+    if period.kind == "semester":
+        if count < SEMESTER_MIN or count > SEMESTER_MAX:
+            errors.append(
+                f"{name} 应有 {SEMESTER_MIN}—{SEMESTER_MAX} 项，当前 {count} 项"
+            )
+        return
+
+    if count < VACATION_MIN or count > VACATION_MAX:
+        errors.append(f"{name} 应有 {VACATION_MIN}—{VACATION_MAX} 项，当前 {count} 项")
+
+
+def _period_index(kind: str, semester: int) -> int:
+    return (semester - 1) * 2 + (0 if kind == "semester" else 1)
+
+
+def _period_name(kind: str, semester: int) -> str:
+    if kind == "semester":
+        return f"第 {semester} 学期"
+    return _vacation_label(kind, semester)
+
+
+def _vacation_label(kind: str, semester: int) -> str:
+    year = ["大一", "大二", "大三", "大四"][(semester - 1) // 2]
+    return f"{year}{'寒假' if kind == 'winter' else '暑假'}"

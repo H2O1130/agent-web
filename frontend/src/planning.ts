@@ -567,9 +567,12 @@ function buildChange(
 }
 
 function isDelayed(before: PlannedTask, after: PlannedTask): boolean {
-  const beforeSlot = (before.semester! - 1) * WEEKS_PER_SEMESTER + before.startWeek!
-  const afterSlot = (after.semester! - 1) * WEEKS_PER_SEMESTER + after.startWeek!
-  return afterSlot > beforeSlot
+  if (before.periodIndex != null && after.periodIndex != null) {
+    return after.periodIndex > before.periodIndex
+  }
+  if (before.semester !== after.semester) return (after.semester ?? 0) > (before.semester ?? 0)
+  if (before.startWeek === null || after.startWeek === null) return false
+  return after.startWeek > before.startWeek
 }
 
 function describeDelay(before: Plan, after: Plan, oldTask: PlannedTask, newTask: PlannedTask): string {

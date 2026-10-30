@@ -1,3 +1,4 @@
+import logging
 import math
 
 from pydantic import ValidationError
@@ -8,11 +9,12 @@ from app.llm.prompt import build_feedback, build_messages
 from app.llm.schema import LLMPlan
 from app.models import Plan, PlanRequest
 from app.services.job_analysis import extract_skills
-from app.services.plan_builder import build_plan
-from app.services.task_catalog import catalog_for_profile, required_task_ids
-from app.services.validator import validate_tasks
+from app.services.micro_catalog import available_micro_tasks, required_micro_ids
+from app.services.plan_builder import build_paused_plan, build_plan
+from app.services.validator import validate_periods
 
-MAX_ATTEMPTS = 2
+MAX_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 
 def create_plan(request: PlanRequest, client) -> Plan:
@@ -29,28 +31,34 @@ def create_plan(request: PlanRequest, client) -> Plan:
             "暂未识别到支持的技能，请补充岗位文本或选择示例样本。",
         )
 
-    catalog = catalog_for_profile(request.profile)
-    required_ids = required_task_ids(
+    catalog = available_micro_tasks(request.profile)
+    required_ids = required_micro_ids(
         request.profile,
         {stat.id for stat in analysis},
     )
+    if request.profile.hours == 0:
+        return build_paused_plan(request, analysis, catalog, required_ids)
+
     messages = build_messages(request.profile, analysis, catalog, required_ids)
 
     last_timeout = False
     last_unavailable = False
 
-    for _ in range(MAX_ATTEMPTS):
+    for attempt in range(MAX_ATTEMPTS):
         try:
             raw = client.complete_json(messages)
         except LLMTimeout:
+            logger.warning("attempt %s timeout", attempt + 1)
             last_timeout = True
             last_unavailable = False
             continue
         except LLMUnavailable:
+            logger.warning("attempt %s unavailable", attempt + 1)
             last_unavailable = True
             last_timeout = False
             continue
         except LLMInvalidOutput as exc:
+            logger.warning("attempt %s invalid output: %s", attempt + 1, exc.message)
             last_timeout = False
             last_unavailable = False
             messages = build_feedback(messages, [exc.message])
@@ -61,19 +69,29 @@ def create_plan(request: PlanRequest, client) -> Plan:
 
         try:
             llm_plan = LLMPlan.model_validate(raw)
-        except ValidationError:
+        except ValidationError as exc:
+            logger.warning("attempt %s schema error: %s", attempt + 1, exc)
             messages = build_feedback(messages, ["输出结构不符合要求"])
             continue
 
-        errors = validate_tasks(
-            llm_plan.tasks,
+        llm_plan = _dedupe_plan(llm_plan)
+
+        errors = validate_periods(
+            llm_plan.periods,
             request.profile,
             catalog,
             required_ids,
         )
         if not errors:
-            return build_plan(request, analysis, catalog, llm_plan.tasks)
+            return build_plan(
+                request,
+                analysis,
+                catalog,
+                llm_plan.periods,
+                llm_plan.strategy,
+            )
 
+        logger.warning("attempt %s validation errors: %s", attempt + 1, errors[:8])
         messages = build_feedback(messages, errors)
 
     if last_timeout:
@@ -85,6 +103,29 @@ def create_plan(request: PlanRequest, client) -> Plan:
         "LLM_INVALID_PLAN",
         "规划结果未通过校验，请稍后重试。",
     )
+
+
+def _dedupe_plan(plan: LLMPlan) -> LLMPlan:
+    seen: set[str] = set()
+    periods = []
+    for period in plan.periods:
+        items = []
+        for item in period.items:
+            if item.id in seen:
+                logger.warning(
+                    "drop duplicate item %s in %s %s",
+                    item.id,
+                    period.kind,
+                    period.semester,
+                )
+                continue
+            seen.add(item.id)
+            items.append(item)
+        period.items = items
+        if items:
+            periods.append(period)
+    plan.periods = periods
+    return plan
 
 
 def _validate_profile(request: PlanRequest) -> None:
