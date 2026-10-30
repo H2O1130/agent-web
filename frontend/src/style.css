@@ -4775,3 +4775,85 @@ progress::-moz-progress-bar {
     font-size: 17px;
   }
 }
+
+/* ---------- 关键词词云 ---------- */
+.keyword-cloud-panel {
+  margin-top: 24px;
+}
+
+.keyword-cloud {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  margin: 6px auto 10px;
+  overflow: visible;
+}
+
+.cloud-word {
+  cursor: pointer;
+  outline: none;
+}
+
+.cloud-text {
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: transform .16s ease, opacity .16s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.cloud-word:hover .cloud-text,
+.cloud-word:focus-visible .cloud-text {
+  transform: scale(1.08);
+  opacity: .92;
+}
+
+.cloud-word:focus-visible .cloud-text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cloud-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.cloud-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cloud-legend .small-label {
+  margin-left: auto;
+}
+
+.cloud-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.cloud-dot.required { background: #6f5312; }
+.cloud-dot.bonus { background: #2b6561; }
+.cloud-dot.neutral { background: #5c5c54; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-text { transition: none; }
+}
+
+@media (max-width: 639px) {
+  .cloud-legend .small-label {
+    margin-left: 0;
+  }
+}
