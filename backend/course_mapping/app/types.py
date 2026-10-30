@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Callable, Literal, TypedDict
 
 
@@ -51,4 +52,6 @@ class MappingRow(TypedDict):
     sourceKind: str
 
 
-ModelCaller = Callable[[str], str]
+# 主约定是返回原始文本；已解析的 `{"mappings": [...]}` 也接受，
+# 便于复用已有客户端（部分客户端会在返回前做 JSON.parse）。
+ModelCaller = Callable[[str], str | Mapping[str, object]]

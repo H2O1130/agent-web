@@ -237,9 +237,19 @@ def _validate_profile(profile: object) -> dict[str, object]:
 
 
 def _parse_response(response: object) -> list[object]:
-    if not isinstance(response, str):
-        raise ModelResponseError("模型响应必须是 JSON 字符串（M1）。")
+    if isinstance(response, Mapping):
+        payload: object = response
+    elif isinstance(response, str):
+        payload = _parse_text(response)
+    else:
+        raise ModelResponseError("模型响应必须是 JSON 字符串或已解析对象（M1）。")
 
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("mappings"), list):
+        raise ModelResponseError("模型响应必须包含 mappings 数组（M1）。")
+    return payload["mappings"]
+
+
+def _parse_text(response: str) -> object:
     content = response.strip()
     if content.startswith("```"):
         lines = content.splitlines()
@@ -253,13 +263,9 @@ def _parse_response(response: object) -> list[object]:
         raise ModelResponseError("模型响应为空（M1）。")
 
     try:
-        payload = json.loads(content)
+        return json.loads(content)
     except json.JSONDecodeError as error:
         raise ModelResponseError("模型响应不是有效 JSON，可能被截断（M1）。") from error
-
-    if not isinstance(payload, dict) or not isinstance(payload.get("mappings"), list):
-        raise ModelResponseError("模型响应必须包含 mappings 数组（M1）。")
-    return payload["mappings"]
 
 
 def _validate_mapping(raw_mapping: object, index: int) -> dict[str, str]:
