@@ -28,7 +28,7 @@ test('桌面完整任务、导出、12→6 小时调整与历史版本保护', a
   await page.getByRole('link', { name: '调整方案', exact: true }).click()
   await page.getByRole('button', { name: '一键演示：每周 12 小时改为 6 小时' }).click()
   await expect(page.getByText('新方案已保存，原方案未修改。')).toBeVisible()
-  await page.getByRole('button', { name: /^推迟/ }).click()
+  await page.getByRole('button', { name: /^全部/ }).click()
   await expect(page.locator('.change-card').first()).toBeVisible()
   const snapshots = await page.evaluate(() => JSON.parse(localStorage.getItem('pathpilot-workspace')!).plans.map((p: { profile: { hours: number } }) => p.profile.hours))
   expect(snapshots).toEqual([6, 12])
@@ -101,11 +101,15 @@ test('手机输入区域不会被下一步操作栏覆盖', async ({ page }) => 
 test('打开旧方案的岗位依据时不会混入当前草稿的另一岗位', async ({ page }) => {
   await completeWizard(page)
   await page.getByRole('button', { name: '分析岗位并生成路线' }).click()
+  await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
   await page.goto('/#/analysis')
   await page.getByRole('button', { name: 'Python 后端', exact: true }).click()
   await page.getByRole('button', { name: '生成成长路线' }).click()
   await page.goto('/#/history')
   await page.locator('.history-card').last().getByRole('button', { name: '查看这份路线' }).click()
+  await page.locator('.item-details').evaluateAll(nodes =>
+    nodes.forEach(node => node.setAttribute('open', '')),
+  )
   await page.getByRole('link', { name: '查看岗位依据' }).first().click()
   await expect(page.locator('.skill-stat')).toContainText(['JavaScript'])
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('pathpilot-workspace')!).profile.role)).toBe('backend')
@@ -114,6 +118,7 @@ test('打开旧方案的岗位依据时不会混入当前草稿的另一岗位',
 test('全部代表宽度的首页、向导、分析、路线与对比均无页面横向溢出', async ({ page }) => {
   await completeWizard(page)
   await page.getByRole('button', { name: '分析岗位并生成路线' }).click()
+  await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
   for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 1000 })
     for (const route of ['/', '/plan', '/analysis', '/roadmap', '/adjust', '/history']) {

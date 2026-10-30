@@ -39,7 +39,7 @@ function choosePath(key: string): void {
   draft.value.path = key as CareerPath
 }
 
-function adjust(): void {
+async function adjust(): Promise<void> {
   const nextProfile = draft.value
   const base = original.value
   if (!nextProfile || !base) return
@@ -51,17 +51,17 @@ function adjust(): void {
     : store.jobs.filter(job => job.role === nextProfile.role && job.source === 'demo').map(job => job.id)
 
   try {
-    result.value = store.generate(nextProfile, jobIds)
+    result.value = await store.generate(nextProfile, jobIds)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请检查调整条件后重试。'
   }
 }
 
-function applyHoursDemo(): void {
+async function applyHoursDemo(): Promise<void> {
   if (!draft.value) return
 
   draft.value.hours = 6
-  adjust()
+  await adjust()
 }
 </script>
 
@@ -123,8 +123,10 @@ function applyHoursDemo(): void {
           <p class="small-label">考研安排是可修改的路径假设，不代替个人选择。</p>
           <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
-          <button class="button primary full-width" @click="adjust">调整成长方案 <ArrowRight :size="17" /></button>
-          <button class="demo-adjust" @click="applyHoursDemo">
+          <button class="button primary full-width" :disabled="store.generating" @click="adjust">
+            {{ store.generating ? '正在生成…' : '调整成长方案' }}<ArrowRight :size="17" />
+          </button>
+          <button class="demo-adjust" :disabled="store.generating" @click="applyHoursDemo">
             <RefreshCw :size="15" />一键演示：每周 12 小时改为 6 小时
           </button>
           <p class="small-label">演示会将时间设为 6 小时；左侧原方案保持不变。</p>
