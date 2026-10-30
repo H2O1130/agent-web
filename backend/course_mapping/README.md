@@ -123,6 +123,38 @@ rows = CourseMapper(model_caller=call_model).map(
 
 映射结果按输入技能顺序返回，不重新排序，便于前端与规划直接对齐。
 
+### 3.1 接进现有 `/api/analyze`（不改请求）
+
+原契约里 analyze 只返回 `{ "skills": [...] }`，没有单独的映射端点。接入时**不新增端点、不改请求体**，只在响应里多带一个 `mappings` 字段：
+
+```python
+from app import CourseMapper, analyze_payload, error_response
+
+mapper = CourseMapper(model_caller)
+
+try:
+    rows = mapper.map(skills, profile)
+except Exception as error:  # 是否重试由调用方决定
+    status, body = error_response(error)
+    raise HTTPException(status_code=status, detail=body) from error
+
+return analyze_payload(skills, rows)  # {"skills": [...], "mappings": [...]}
+```
+
+响应示例（`skills` 原样透传，新增 `mappings`）：
+
+```json
+{
+  "skills": [ { "id": "javascript", "name": "JavaScript", "count": 2, "evidence": [ ] } ],
+  "mappings": [ { "skillId": "javascript", "course": "Web 程序设计", "project": "校园活动报名应用", "sourceKind": "示例" } ]
+}
+```
+
+- 不识别 `mappings` 的旧前端会直接忽略该字段，因此两端可以分批上线。
+- `mappings` 与 `skills` 按 `skillId` 对齐；前端可用 `rows_by_skill()` 建索引。
+- 错误体沿用现有 `{code, message}`：输入错误 `bad_request` / 400，模型输出不合格 `llm_bad_response` / 502，其他 `internal_error` / 500。
+- 空 `skills` 返回空 `mappings`，不抛错；是否返回 422 由调用方的现有校验决定。
+
 ## 4. Python API
 
 ### `CourseMapper(model_caller)`
@@ -220,6 +252,8 @@ from app import (
 - 模型不返回覆盖数、不返回来源、不新增课程或项目。
 
 调用方职责：密钥仅服务端环境变量；90 秒超时；失败重试 1 次；重试仍失败返回 502，不回退本地规则。
+
+返回值兼容：`model_caller` 返回原始文本（主约定）或已解析的 `{"mappings": [...]}` 均可，后者便于复用会在返回前 `JSON.parse` 的现有客户端；解析与校验规则不变。
 
 ## 7. 校验规则
 
@@ -371,7 +405,7 @@ macOS / Linux 用 `source .venv/bin/activate`。离线用例全部使用假模�
 
 ## 12. 已知差异与后续
 
-- 统一接口（端点、请求/响应、错误码、模型入口语义）见仓库根 `接口契约.md`：本模块对应第 3.2 节 `POST /api/mapping` 与第 5 节 `callModel(prompt) -> 原始文本`，`MappingRow` 字段与该文件一致。
+- 接入方式与兼容点见 `接入说明.md`：不新增端点，映射并入 `/api/analyze` 的 `mappings` 字段；错误体沿用现有 `{code, message}`，模型调用方返回文本或已解析对象均可。
 - `frontend/src/data.ts` 中 `api` 的课程名为「软件工程 / Web 开发」，`planning.ts` 与资料表为「Web 开发 / 软件工程」。以 `planning.ts` 为准，`test_contract.py` 单独登记该差异；前端切换映射数据源时需一并统一。
 - 资料表 `skillIds` 不区分「主讲该技能」与「以该技能为工具」。live 实测中，画像已修 Python 课程时模型把 `python` 映射到「软件测试（选做）」（用 Python 写测试），理由成立但不是入门课。若要收紧，可在资料表增加 `primarySkillIds` 并让提示词优先主讲课程；按 2026-10-30 决定，暂不做固定课程限制。
 - 模型 `temperature=0.2`，同一输入多次调用不保证课程完全一致；历史方案对比可能因此出现课程变化，需要在展示层说明。
