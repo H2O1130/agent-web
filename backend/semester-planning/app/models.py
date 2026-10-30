@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 Role = Literal["frontend", "backend"]
 CareerPath = Literal["job", "graduate", "undecided"]
 TaskKind = Literal["基础", "专项", "项目", "可选", "备考"]
+PeriodKind = Literal["semester", "summer", "winter"]
 EvidenceKind = Literal["明确要求", "加分项", "表述不明"]
 
 
@@ -56,14 +57,58 @@ class PlannedTask(ApiModel):
     course: str
     outcome: str
     acceptance: str
+    example: str
     prerequisites: list[str]
     hours: int
     weeks: int
     semester: int | None = None
     startWeek: int | None = None
+    weekNote: str = ""
+    periodIndex: int = 0
+    periodLabel: str = ""
+    periodKind: PeriodKind = "semester"
+    module: str = ""
+    moduleName: str = ""
     kind: TaskKind
     jobIds: list[str]
     reason: str
+
+
+class Milestone(ApiModel):
+    semester: int
+    label: str = ""
+    title: str
+    evidence: str
+
+
+class PlanOverview(ApiModel):
+    goal: str
+    strategy: str
+    principles: list[str]
+    stack: list[str]
+    milestones: list[Milestone]
+    decisionPoint: str
+
+
+class SemesterPlan(ApiModel):
+    semester: int
+    title: str
+    goal: str
+    output: str
+    decision: str = ""
+    itemIds: list[str]
+
+
+class VacationPlan(ApiModel):
+    id: str
+    kind: PeriodKind
+    afterSemester: int
+    label: str
+    title: str
+    goal: str
+    output: str
+    decision: str = ""
+    itemIds: list[str]
 
 
 class Plan(ApiModel):
@@ -72,6 +117,9 @@ class Plan(ApiModel):
     createdAt: str
     profile: Profile
     jobIds: list[str]
+    overview: PlanOverview
+    semesters: list[SemesterPlan]
+    vacations: list[VacationPlan]
     tasks: list[PlannedTask]
 
 

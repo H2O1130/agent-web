@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,12 +48,32 @@ def test_success_returns_plan(client, profile, jobs, valid_llm_plan):
     assert response.status_code == 200
     plan = response.json()["plan"]
     assert plan["version"] == 1
-    assert len(plan["tasks"]) == 8
+    assert len(plan["tasks"]) == 14
     assert plan["profile"]["hours"] == 12
+    assert plan["overview"]["goal"]
+    assert plan["overview"]["strategy"]
+    assert [semester["semester"] for semester in plan["semesters"]] == [3, 4]
+    assert [vacation["label"] for vacation in plan["vacations"]] == [
+        "大二寒假",
+        "大二暑假",
+    ]
+    assert plan["tasks"][0]["weekNote"]
+
+
+def test_duplicate_item_is_dropped(client, profile, jobs, valid_llm_plan):
+    plan_data = json.loads(json.dumps(valid_llm_plan))
+    plan_data["periods"][0]["items"].append({"id": "git-repo", "weeks": ""})
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient([plan_data])
+
+    response = client.post("/api/plan", json=_payload(profile, jobs))
+
+    assert response.status_code == 200
+    ids = [task["id"] for task in response.json()["plan"]["tasks"]]
+    assert len(ids) == len(set(ids))
 
 
 def test_retry_after_invalid_output(client, profile, jobs, valid_llm_plan):
-    fake = FakeClient([{"tasks": []}, valid_llm_plan])
+    fake = FakeClient([{"periods": []}, valid_llm_plan])
     app.dependency_overrides[get_llm_client] = lambda: fake
 
     response = client.post("/api/plan", json=_payload(profile, jobs))
@@ -60,9 +82,9 @@ def test_retry_after_invalid_output(client, profile, jobs, valid_llm_plan):
     assert fake.call_count == 2
 
 
-def test_two_invalid_outputs_return_502(client, profile, jobs):
+def test_three_invalid_outputs_return_502(client, profile, jobs):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient(
-        [{"tasks": []}, {"tasks": []}]
+        [{"periods": []}, {"periods": []}, {"periods": []}]
     )
 
     response = client.post("/api/plan", json=_payload(profile, jobs))
@@ -71,15 +93,31 @@ def test_two_invalid_outputs_return_502(client, profile, jobs):
     assert response.json()["code"] == "LLM_INVALID_PLAN"
 
 
-def test_two_timeouts_return_504(client, profile, jobs):
+def test_three_timeouts_return_504(client, profile, jobs):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient(
-        [LLMTimeout(), LLMTimeout()]
+        [LLMTimeout(), LLMTimeout(), LLMTimeout()]
     )
 
     response = client.post("/api/plan", json=_payload(profile, jobs))
 
     assert response.status_code == 504
     assert response.json()["code"] == "LLM_TIMEOUT"
+
+
+def test_zero_hours_returns_pending_tasks(client, profile, jobs):
+    fake = FakeClient([])
+    app.dependency_overrides[get_llm_client] = lambda: fake
+    paused = profile.model_copy(update={"hours": 0})
+
+    response = client.post("/api/plan", json=_payload(paused, jobs))
+
+    assert response.status_code == 200
+    plan = response.json()["plan"]
+    assert plan["semesters"] == []
+    assert plan["vacations"] == []
+    assert plan["tasks"]
+    assert all(task["semester"] is None for task in plan["tasks"])
+    assert fake.call_count == 0
 
 
 def test_missing_api_key_returns_503(client, profile, jobs, monkeypatch):

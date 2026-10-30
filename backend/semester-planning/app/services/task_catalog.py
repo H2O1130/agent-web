@@ -22,6 +22,7 @@ def build_portfolio(profile: Profile) -> TaskTemplate:
         course="软件工程团队实践（选做）",
         outcome="项目说明、演示记录与实习准备材料",
         acceptance="清楚说明解决的问题、个人贡献、验证过程与改进",
+        example="把课程项目整理成一页作品集：问题、方案、个人贡献、截图和验证结果各一块。",
         prerequisites=(project_id,),
         hours=3,
         weeks=4,

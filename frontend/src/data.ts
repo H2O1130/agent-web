@@ -143,11 +143,14 @@ interface TaskPeriodInput {
   semester: number | null
   startWeek: number | null
   weeks: number
+  periodLabel?: string
 }
 
 export function taskPeriod(task: TaskPeriodInput): string {
   if (task.semester === null) return '待安排'
+  if (task.periodLabel) return task.periodLabel
+  if (task.startWeek === null) return `第 ${task.semester} 学期`
 
-  const lastWeek = task.startWeek! + task.weeks - 1
+  const lastWeek = task.startWeek + task.weeks - 1
   return `第 ${task.semester} 学期 · 第 ${task.startWeek}—${lastWeek} 周`
 }

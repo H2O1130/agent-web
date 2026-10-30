@@ -1,6 +1,7 @@
 export type Role = 'frontend' | 'backend'
 export type CareerPath = 'job' | 'graduate' | 'undecided'
 export type ScoreKey = 'programming' | 'project' | 'analysis' | 'communication'
+export type PeriodKind = 'semester' | 'summer' | 'winter'
 
 export interface Profile {
   major: string
@@ -46,14 +47,58 @@ export interface PlannedTask {
   course: string
   outcome: string
   acceptance: string
+  example?: string
   prerequisites: string[]
   hours: number
   weeks: number
   semester: number | null
   startWeek: number | null
+  weekNote?: string
+  periodIndex?: number
+  periodLabel?: string
+  periodKind?: PeriodKind
+  module?: string
+  moduleName?: string
   kind: '基础' | '专项' | '项目' | '可选' | '备考'
   jobIds: string[]
   reason: string
+}
+
+export interface Milestone {
+  semester: number
+  label?: string
+  title: string
+  evidence: string
+}
+
+export interface PlanOverview {
+  goal: string
+  strategy: string
+  principles: string[]
+  stack: string[]
+  milestones: Milestone[]
+  decisionPoint: string
+}
+
+export interface SemesterPlan {
+  semester: number
+  title: string
+  goal: string
+  output: string
+  decision: string
+  itemIds: string[]
+}
+
+export interface VacationPlan {
+  id: string
+  kind: 'summer' | 'winter'
+  afterSemester: number
+  label: string
+  title: string
+  goal: string
+  output: string
+  decision: string
+  itemIds: string[]
 }
 
 export interface Plan {
@@ -62,6 +107,9 @@ export interface Plan {
   createdAt: string
   profile: Profile
   jobIds: string[]
+  overview?: PlanOverview
+  semesters?: SemesterPlan[]
+  vacations?: VacationPlan[]
   tasks: PlannedTask[]
 }
 
