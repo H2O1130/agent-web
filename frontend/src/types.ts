@@ -121,3 +121,18 @@ export interface TaskChange {
   after?: PlannedTask
   reason: string
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatProposal {
+  summary: string
+  profile: Profile
+}
+
+export interface ChatReply {
+  reply: string
+  proposal?: ChatProposal | null
+}

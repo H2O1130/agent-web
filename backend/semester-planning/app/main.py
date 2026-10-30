@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.chat import router as chat_router
 from app.api.llm import router as llm_router
 from app.api.plan import router as plan_router
 from app.core.errors import ApiError
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(plan_router)
 app.include_router(llm_router)
+app.include_router(chat_router)
 
 
 @app.get("/health")

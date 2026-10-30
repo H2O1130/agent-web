@@ -4857,3 +4857,141 @@ progress::-moz-progress-bar {
     margin-left: 0;
   }
 }
+
+/* ---------- 规划助手对话 ---------- */
+.chat-panel {
+  margin-top: 24px;
+}
+
+.chat-hint {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--selected);
+  color: var(--gold-ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.chat-hint code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #fff;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px 2px 8px;
+  scroll-behavior: smooth;
+}
+
+.chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 78%;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-bubble.assistant {
+  align-self: flex-start;
+}
+
+.chat-role {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+
+.chat-bubble p {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-bubble.user p {
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+.chat-bubble.assistant p {
+  background: #f4f2ea;
+  color: var(--text);
+  border-bottom-left-radius: 3px;
+}
+
+.chat-bubble.typing p {
+  color: var(--muted);
+}
+
+.chat-proposal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  background: var(--selected);
+}
+
+.chat-proposal p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.chat-proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(195, 160, 77, .18);
+}
+
+@media (max-width: 639px) {
+  .chat-bubble {
+    max-width: 88%;
+  }
+
+  .chat-input {
+    flex-direction: column;
+  }
+}

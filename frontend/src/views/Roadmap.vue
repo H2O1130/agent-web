@@ -13,6 +13,7 @@ import {
   Route,
   Target,
 } from '@lucide/vue'
+import ChatAssistant from '../components/ChatAssistant.vue'
 import { useWorkspace } from '../store'
 import { pathNames, roleNames } from '../data'
 import type { Plan, PlannedTask } from '../types'
@@ -279,6 +280,8 @@ function exportPlan(): void {
           <small>每一次完成，都值得被记录</small>
         </div>
       </section>
+
+      <ChatAssistant :plan="plan" />
 
       <section v-if="overview" class="plan-overview">
         <div class="overview-heading">

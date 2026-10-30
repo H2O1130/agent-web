@@ -43,14 +43,20 @@ class DeepSeekClient:
         except OpenAIError as exc:
             raise LLMUnavailable("模型服务不可用") from exc
 
-    def complete_json(self, messages: list[dict]) -> dict:
+    def complete_json(
+        self,
+        messages: list[dict],
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict:
         try:
             response = self._client.chat.completions.create(
                 model=self._settings.model,
                 messages=messages,
                 response_format={"type": "json_object"},
-                temperature=self._settings.temperature,
-                max_tokens=self._settings.max_tokens,
+                temperature=self._settings.temperature if temperature is None else temperature,
+                max_tokens=self._settings.max_tokens if max_tokens is None else max_tokens,
                 extra_body={"thinking": {"type": "disabled"}},
             )
         except (APITimeoutError, httpx.TimeoutException) as exc:

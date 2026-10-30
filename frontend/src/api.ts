@@ -1,5 +1,5 @@
 import { llmHeaders, type LlmSettings } from './llm'
-import type { Job, Plan, Profile } from './types'
+import type { ChatMessage, ChatReply, Job, Plan, Profile } from './types'
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim().replace(/\/$/, '')
 
@@ -38,6 +38,102 @@ export async function requestPlan(profile: Profile, jobs: Job[], version: number
   }
 
   return data.plan as unknown as Plan
+}
+
+interface ChatItemDigest {
+  id: string
+  title: string
+  semester: number | null
+  kind: string
+  hours: number
+}
+
+interface ChatPeriodDigest {
+  label: string
+  title: string
+  goal: string
+  items: ChatItemDigest[]
+}
+
+function buildPlanDigest(plan: Plan): { version: number; profile: Profile; periods: ChatPeriodDigest[] } {
+  const taskMap = new Map(plan.tasks.map(task => [task.id, task]))
+
+  const itemOf = (id: string): ChatItemDigest | null => {
+    const task = taskMap.get(id)
+    if (!task) return null
+    return { id: task.id, title: task.title, semester: task.semester, kind: task.kind, hours: task.hours }
+  }
+  const itemsOf = (ids: string[]): ChatItemDigest[] =>
+    ids.map(itemOf).filter((item): item is ChatItemDigest => item !== null)
+
+  const periods: ChatPeriodDigest[] = []
+
+  for (const semester of plan.semesters ?? []) {
+    periods.push({
+      label: `第 ${semester.semester} 学期`,
+      title: semester.title,
+      goal: semester.goal,
+      items: itemsOf(semester.itemIds),
+    })
+  }
+  for (const vacation of plan.vacations ?? []) {
+    periods.push({
+      label: vacation.label,
+      title: vacation.title,
+      goal: vacation.goal,
+      items: itemsOf(vacation.itemIds),
+    })
+  }
+
+  if (!periods.length) {
+    const groups = new Map<number, ChatPeriodDigest>()
+    for (const task of plan.tasks) {
+      if (task.semester === null) continue
+      const group = groups.get(task.semester) ?? {
+        label: `第 ${task.semester} 学期`,
+        title: '',
+        goal: '',
+        items: [],
+      }
+      group.items.push({
+        id: task.id,
+        title: task.title,
+        semester: task.semester,
+        kind: task.kind,
+        hours: task.hours,
+      })
+      groups.set(task.semester, group)
+    }
+    periods.push(...[...groups.entries()].sort((a, b) => a[0] - b[0]).map(([, group]) => group))
+  }
+
+  return { version: plan.version, profile: plan.profile, periods }
+}
+
+export async function requestChat(messages: ChatMessage[], plan: Plan): Promise<ChatReply> {
+  let response: Response
+
+  try {
+    response = await fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({ messages, profile: plan.profile, plan: buildPlanDigest(plan) }),
+    })
+  } catch {
+    throw new Error('无法连接规划服务，请确认后端已启动。')
+  }
+
+  const data: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(messageOf(data) ?? '对话服务暂时不可用，请稍后重试。')
+  }
+
+  if (!isRecord(data) || typeof data.reply !== 'string') {
+    throw new Error('对话服务返回的数据格式不正确。')
+  }
+
+  return data as unknown as ChatReply
 }
 
 export async function verifyLlmKey(using: LlmSettings): Promise<string> {
