@@ -5,6 +5,13 @@ test-results/
 playwright-report/
 *.local
 .vite/
+
+# Python backend
+.venv/
+venv/
 __pycache__/
 *.py[cod]
-.vscode/
+.pytest_cache/
+.ruff_cache/
+.env
+!.env.example
