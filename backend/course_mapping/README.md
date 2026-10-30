@@ -372,13 +372,13 @@ cd backend/course_mapping
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements-dev.txt
-pytest              # 103 条离线用例，2 条 live 自动跳过
+pytest              # 111 条离线用例，2 条 live 自动跳过
 pytest -m live -s   # 需要 DEEPSEEK_API_KEY，打印真实映射结果
 ```
 
 macOS / Linux 用 `source .venv/bin/activate`。离线用例全部使用假模型，不访问网络、不读密钥。
 
-覆盖：资料表完整性与 12 类损坏反例；M1—M7 全部反例；空输入不调用模型；重复技能取最后一条；理由长度/换行；输入顺序与 `jobIds` 去重；`alreadyTaken`；模型异常透传；与 `data.ts`、`planning.ts`、`skill_merger/skills.json` 的契约一致性。
+覆盖：资料表完整性与 12 类损坏反例；M1—M7 全部反例；空输入不调用模型；重复技能取最后一条；理由长度/换行；输入顺序与 `jobIds` 去重；`alreadyTaken`；模型异常透传；兼容层（已解析响应、错误体、`analyze` 响应片段）；与 `data.ts`、`planning.ts`、`skill_merger/skills.json` 的契约一致性。
 
 ### live 联调
 
@@ -410,5 +410,5 @@ macOS / Linux 用 `source .venv/bin/activate`。离线用例全部使用假模�
 - 资料表 `skillIds` 不区分「主讲该技能」与「以该技能为工具」。live 实测中，画像已修 Python 课程时模型把 `python` 映射到「软件测试（选做）」（用 Python 写测试），理由成立但不是入门课。若要收紧，可在资料表增加 `primarySkillIds` 并让提示词优先主讲课程；按 2026-10-30 决定，暂不做固定课程限制。
 - 模型 `temperature=0.2`，同一输入多次调用不保证课程完全一致；历史方案对比可能因此出现课程变化，需要在展示层说明。
 - 画像 `courses` 只做子串判断，未解析学期与课程号；`scores` 未参与选课（与需求 D2/D3 一致）。
-- 本模块不产出 HTTP 路由；接入时由联调方包装 `{code, message}` 并映射异常。前端如需展示，需要新增课程映射端点（如 `POST /api/mapping`）并在 `api.ts` 增加对应封装；本模块只负责 `CourseMapper.map` 的结果。
+- 本模块不产出 HTTP 路由；按 `接入说明.md` 把结果并入 `/api/analyze` 的 `mappings` 字段，由端点方包装 `{code, message}`。前端读取 `mappings` 时按 `skillId` 对齐；旧版未返回该字段时继续用 `data.ts` 的本地映射，两端可分批上线。
 - 真实培养方案到位后：替换 `catalog.json`、放宽 `meta.sourceKind` 校验、更新第 8 节来源说明，并重跑 `pytest`。
