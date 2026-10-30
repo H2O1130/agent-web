@@ -95,3 +95,63 @@ describe('requestPlan', () => {
     await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('数据格式不正确')
   })
 })
+
+describe('模型密钥', () => {
+  it('已保存密钥时随规划请求发送请求头', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => JSON.stringify({ key: 'sk-browser', model: 'deepseek-chat' }),
+      setItem: () => {},
+      removeItem: () => {},
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ plan: { id: 'p1', tasks: [] } }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('http://127.0.0.1:8000')
+
+    await api.requestPlan(profile, jobs, 1)
+
+    const headers = fetchMock.mock.calls[0]![1].headers as Record<string, string>
+    expect(headers['X-DeepSeek-Key']).toBe('sk-browser')
+    expect(headers['X-DeepSeek-Model']).toBe('deepseek-chat')
+  })
+
+  it('校验密钥时返回后端使用的模型名', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, model: 'deepseek-chat' }), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('http://127.0.0.1:8000')
+
+    const model = await api.verifyLlmKey({ key: 'sk-draft', model: '' })
+
+    expect(model).toBe('deepseek-chat')
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/llm/verify',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const headers = fetchMock.mock.calls[0]![1].headers as Record<string, string>
+    expect(headers['X-DeepSeek-Key']).toBe('sk-draft')
+  })
+
+  it('密钥无效时抛出后端提示', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ code: 'LLM_UNAUTHORIZED', message: '密钥无效或无法访问模型服务。' }), {
+          status: 401,
+        }),
+      ),
+    )
+    const api = await loadApi('http://127.0.0.1:8000')
+
+    await expect(api.verifyLlmKey({ key: 'sk-bad', model: '' })).rejects.toThrow('密钥无效')
+  })
+
+  it('校验时连接失败提示检查后端', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    const api = await loadApi('http://127.0.0.1:8000')
+
+    await expect(api.verifyLlmKey({ key: 'sk-x', model: '' })).rejects.toThrow('无法连接规划服务')
+  })
+})

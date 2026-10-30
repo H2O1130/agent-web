@@ -3,7 +3,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.plan import router
+from app.api.llm import router as llm_router
+from app.api.plan import router as plan_router
 from app.core.errors import ApiError
 
 app = FastAPI(title="PathPilot Semester Planning")
@@ -18,7 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+app.include_router(plan_router)
+app.include_router(llm_router)
 
 
 @app.get("/health")

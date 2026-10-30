@@ -4612,3 +4612,166 @@ progress::-moz-progress-bar {
     grid-template-columns: 1fr;
   }
 }
+
+.demo-badge.is-live span {
+  background: var(--primary);
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #1c1c1955;
+}
+
+.settings-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 470px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px #1c1c1926;
+}
+
+.settings-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 22px 0;
+}
+
+.settings-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--selected);
+  color: var(--gold-ink);
+}
+
+.settings-head h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.settings-head p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.settings-close {
+  flex: none;
+  margin-left: auto;
+  width: 38px;
+  height: 38px;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 22px;
+}
+
+.settings-input {
+  position: relative;
+  display: block;
+}
+
+.settings-input input {
+  padding-right: 54px;
+}
+
+.settings-eye {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  transform: translateY(-50%);
+}
+
+.settings-eye:hover {
+  background: #f3f2ec;
+  color: var(--text);
+}
+
+.settings-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.settings-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.settings-note.ok {
+  color: #2f6b3f;
+}
+
+.settings-note.error {
+  color: #a3341f;
+}
+
+.settings-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 22px 22px;
+}
+
+.settings-foot-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-foot-actions .button {
+  min-width: 96px;
+}
+
+.spin {
+  animation: settings-spin .9s linear infinite;
+}
+
+@keyframes settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 479px) {
+  .settings-backdrop {
+    padding: 12px;
+  }
+
+  .settings-head h2 {
+    font-size: 17px;
+  }
+}

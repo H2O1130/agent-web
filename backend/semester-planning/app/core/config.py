@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from dotenv import load_dotenv
 
@@ -14,6 +14,23 @@ class Settings:
     timeout: float
     max_tokens: int
     temperature: float
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.api_key)
+
+    def with_overrides(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+    ) -> "Settings":
+        return replace(
+            self,
+            api_key=(api_key or "").strip() or self.api_key,
+            model=(model or "").strip() or self.model,
+            base_url=(base_url or "").strip() or self.base_url,
+        )
 
 
 def get_settings() -> Settings:

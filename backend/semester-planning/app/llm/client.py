@@ -30,6 +30,19 @@ class DeepSeekClient:
             max_retries=0,
         )
 
+    def verify(self) -> None:
+        try:
+            self._client.chat.completions.create(
+                model=self._settings.model,
+                messages=[{"role": "user", "content": "ping"}],
+                max_tokens=4,
+                temperature=0,
+            )
+        except (APITimeoutError, httpx.TimeoutException) as exc:
+            raise LLMTimeout("模型请求超时") from exc
+        except OpenAIError as exc:
+            raise LLMUnavailable("模型服务不可用") from exc
+
     def complete_json(self, messages: list[dict]) -> dict:
         try:
             response = self._client.chat.completions.create(

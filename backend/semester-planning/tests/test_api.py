@@ -3,7 +3,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.plan import get_llm_client
+from app.api.deps import get_llm_client
 from app.llm.client import LLMTimeout
 from app.main import app
 from app.models import PlanRequest

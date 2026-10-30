@@ -132,3 +132,44 @@ test('全部代表宽度的首页、向导、分析、路线与对比均无页�
     }
   }
 })
+
+test('模型设置：保存密钥后页头显示已接入模型', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await expect(page.locator('.demo-badge')).toHaveText('演示模式')
+
+  await page.getByRole('button', { name: '模型设置' }).click()
+  const dialog = page.getByRole('dialog', { name: '模型设置' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByLabel('密钥', { exact: true }).fill('sk-e2e-test')
+  await dialog.getByRole('button', { name: '保存' }).click()
+  await expect(dialog.getByText('已保存在本机浏览器')).toBeVisible()
+
+  await dialog.getByRole('button', { name: '关闭模型设置' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.locator('.demo-badge')).toHaveText('已接入模型')
+
+  const stored = await page.evaluate(() => localStorage.getItem('pathpilot-llm'))
+  expect(JSON.parse(stored!)).toEqual({ key: 'sk-e2e-test', model: '' })
+
+  await page.reload()
+  await expect(page.locator('.demo-badge')).toHaveText('已接入模型')
+})
+
+test('模型设置：Esc 关闭并清除密钥', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() =>
+    localStorage.setItem('pathpilot-llm', JSON.stringify({ key: 'sk-old', model: '' })),
+  )
+  await page.reload()
+  await page.getByRole('button', { name: '模型设置' }).click()
+  const dialog = page.getByRole('dialog', { name: '模型设置' })
+
+  await expect(dialog.getByLabel('密钥', { exact: true })).toHaveValue('sk-old')
+  await dialog.getByRole('button', { name: '清除' }).click()
+  await expect(dialog.getByLabel('密钥', { exact: true })).toHaveValue('')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  expect(await page.evaluate(() => localStorage.getItem('pathpilot-llm'))).toBeNull()
+})

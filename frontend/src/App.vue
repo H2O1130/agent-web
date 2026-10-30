@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowUpRight, Compass, Menu, X } from '@lucide/vue'
+import { ArrowUpRight, Compass, KeyRound, Menu, X } from '@lucide/vue'
+import LlmSettingsDialog from './components/LlmSettingsDialog.vue'
+import { hasLlmKey } from './llm'
 import { useWorkspace } from './store'
 
 interface NavItem {
@@ -24,6 +26,9 @@ const menuButton = ref<HTMLButtonElement>()
 const mobileMenu = ref<HTMLElement>()
 const main = ref<HTMLElement>()
 
+const settingsOpen = ref(false)
+const settingsButton = ref<HTMLButtonElement>()
+
 const mobileNavItems = computed<NavItem[]>(() => [
   ...navItems,
   { path: '/plan', label: '开始规划' },
@@ -35,6 +40,16 @@ watch(
     menuOpen.value = false
   },
 )
+
+function openSettings(): void {
+  settingsOpen.value = true
+}
+
+async function closeSettings(): Promise<void> {
+  settingsOpen.value = false
+  await nextTick()
+  settingsButton.value?.focus()
+}
 
 function skipToMain(): void {
   main.value?.focus()
@@ -96,7 +111,18 @@ function menuKeys(event: KeyboardEvent): void {
       </nav>
 
       <div class="header-actions">
-        <span class="demo-badge"><span></span>演示模式</span>
+        <span class="demo-badge" :class="{ 'is-live': hasLlmKey }">
+          <span></span>{{ hasLlmKey ? '已接入模型' : '演示模式' }}
+        </span>
+        <button
+          ref="settingsButton"
+          class="icon-button"
+          aria-label="模型设置"
+          title="模型设置"
+          @click="openSettings"
+        >
+          <KeyRound :size="20" />
+        </button>
         <RouterLink to="/plan" class="header-cta">开始规划 <ArrowUpRight :size="16" /></RouterLink>
 
         <button
@@ -138,6 +164,8 @@ function menuKeys(event: KeyboardEvent): void {
   <main id="main" ref="main" tabindex="-1">
     <RouterView />
   </main>
+
+  <LlmSettingsDialog :open="settingsOpen" @close="closeSettings" />
 
   <footer class="site-footer">
     <div>

@@ -1,8 +1,8 @@
 # 分学期规划模块
 
-输入画像与岗位样本，输出与前端同构的 `Plan`。只提供 `POST /api/plan`。
+输入画像与岗位样本，输出与前端同构的 `Plan`。提供 `POST /api/plan` 与 `POST /api/llm/verify`。
 
-状态：T1—T8 已实现，按学期与寒暑假组织，含规划总览、微任务与折叠详情；`pytest` 43 passed、1 skipped；前端 19 项单测；真实 DeepSeek 与本地/远程 E2E 均已通过。
+状态：T1—T8 已实现，按学期与寒暑假组织，含规划总览、微任务与折叠详情；`pytest` 52 passed、1 skipped；前端 29 项单测；真实 DeepSeek 与本地/远程 E2E 均已通过。
 
 需求：[`../../需求与分工.md`](../../需求与分工.md) · 运行：[`../开发说明.md`](../开发说明.md)
 
@@ -35,6 +35,18 @@
 | 其他 | 500 | `INTERNAL` |
 
 `GET /health` → `{ "status": "ok" }`；CORS 放行 5173。
+
+## 浏览器自带密钥
+
+前端页头的「模型设置」可以填自己的 DeepSeek 密钥，存在 `localStorage`，每次请求通过请求头发给本机后端，优先于 `.env`：
+
+| 请求头 | 作用 |
+| --- | --- |
+| `X-DeepSeek-Key` | 覆盖 `DEEPSEEK_API_KEY`，留空则回退 `.env` |
+| `X-DeepSeek-Model` | 覆盖 `DEEPSEEK_MODEL` |
+| `X-DeepSeek-Base-URL` | 覆盖 `DEEPSEEK_BASE_URL` |
+
+`POST /api/llm/verify`（同上述请求头，无请求体）→ `{ "ok": true, "model": "deepseek-chat" }`；失败：503 `LLM_NOT_CONFIGURED`、401 `LLM_UNAUTHORIZED`、504 `LLM_TIMEOUT`。校验只发一次 4 token 的探测请求。
 
 ## DeepSeek V4.1 Flash
 
