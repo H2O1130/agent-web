@@ -38,7 +38,7 @@ backend/course_mapping/
 │   └── errors.py        模块异常
 └── tests/
     ├── test_catalog.py  资料表完整性与损坏反例
-    ├── test_service.py  映射、校验 M1—M7 与异常
+    ├── test_service.py  映射、校验 M1—M8 与异常
     ├── test_contract.py 与 frontend/data.ts、planning.ts、skill_merger 的一致性
     └── test_live.py     真实 DeepSeek 联调（需 DEEPSEEK_API_KEY，默认跳过）
 ```
@@ -378,7 +378,7 @@ pytest -m live -s   # 需要 DEEPSEEK_API_KEY，打印真实映射结果
 
 macOS / Linux 用 `source .venv/bin/activate`。离线用例全部使用假模型，不访问网络、不读密钥。
 
-覆盖：资料表完整性与 12 类损坏反例；M1—M7 全部反例；空输入不调用模型；重复技能取最后一条；理由长度/换行；输入顺序与 `jobIds` 去重；`alreadyTaken`；模型异常透传；兼容层（已解析响应、错误体、`analyze` 响应片段）；与 `data.ts`、`planning.ts`、`skill_merger/skills.json` 的契约一致性。
+覆盖：资料表完整性与 12 类损坏反例；M1—M8 全部反例；空输入不调用模型；重复技能取最后一条；理由长度/换行；输入顺序与 `jobIds` 去重；`alreadyTaken`；模型异常透传；兼容层（已解析响应、错误体、`analyze` 响应片段）；与 `data.ts`、`planning.ts`、`skill_merger/skills.json` 的契约一致性。
 
 ### live 联调
 
