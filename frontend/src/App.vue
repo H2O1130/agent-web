@@ -3,7 +3,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowUpRight, Compass, KeyRound, Menu, X } from '@lucide/vue'
 import LlmSettingsDialog from './components/LlmSettingsDialog.vue'
-import { hasLlmKey } from './llm'
+import { remotePlanEnabled } from './api'
+import { llmVerified } from './llm'
 import { useWorkspace } from './store'
 
 interface NavItem {
@@ -20,6 +21,10 @@ const navItems: NavItem[] = [
 
 const route = useRoute()
 const store = useWorkspace()
+const backendEnabled = remotePlanEnabled()
+const modelStatus = computed(() =>
+  !backendEnabled ? '本地演示' : llmVerified.value ? '模型已连接' : '模型待验证',
+)
 
 const menuOpen = ref(false)
 const menuButton = ref<HTMLButtonElement>()
@@ -111,8 +116,8 @@ function menuKeys(event: KeyboardEvent): void {
       </nav>
 
       <div class="header-actions">
-        <span class="demo-badge" :class="{ 'is-live': hasLlmKey }">
-          <span></span>{{ hasLlmKey ? '已接入模型' : '演示模式' }}
+        <span class="demo-badge" :class="{ 'is-live': backendEnabled && llmVerified }">
+          <span></span>{{ modelStatus }}
         </span>
         <button
           ref="settingsButton"
@@ -172,6 +177,6 @@ function menuKeys(event: KeyboardEvent): void {
       <RouterLink to="/" class="footer-brand"><Compass :size="18" /> 学途 PathPilot</RouterLink>
       <span>让学习有方向，让成长有依据。</span>
     </div>
-    <span>本地样本与规则演示</span>
+    <span>{{ backendEnabled ? '岗位洞察本地预览 · 成长路线后端规划' : '岗位洞察与成长路线均为本地演示' }}</span>
   </footer>
 </template>
