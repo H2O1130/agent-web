@@ -40,6 +40,19 @@ agent-web/
         └── README.md         接口、校验、DeepSeek 配置
 ```
 
+## 分支与合并
+
+工作在自己的分支上，合并进 `master` **只允许** `git merge --no-ff <分支>`，不走 PR、不做快进合并：
+
+```sh
+git switch master
+git merge --ff-only origin/master
+git merge --no-ff <分支> -m "Merge branch '<分支>' into master"
+git push origin master
+```
+
+详见 [`需求与分工.md`](./需求与分工.md) 第 6.1 节。
+
 ## 文档
 
 | 文档 | 内容 |
