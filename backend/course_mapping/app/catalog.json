@@ -1,0 +1,463 @@
+{
+  "meta": {
+    "version": "2026-10-30",
+    "sourceKind": "示例",
+    "disclaimer": "本资料表为示例数据，用于演示与联调，不代表本校真实培养方案、课程号或课程项目库；接入真实数据前，不得向用户宣称已对接教务系统。",
+    "courseRef": "示例培养方案·计算机科学与技术 2024 版",
+    "projectRef": "示例课程项目库",
+    "replaceGuide": "替换为教务课程与课程项目记录时保持字段结构不变；courseId、projectId 一经用于已生成方案不得改名，只能新增条目，避免历史方案与差异对比失效。"
+  },
+  "skills": [
+    {
+      "id": "programming",
+      "name": "编程基础"
+    },
+    {
+      "id": "html",
+      "name": "HTML / CSS"
+    },
+    {
+      "id": "javascript",
+      "name": "JavaScript"
+    },
+    {
+      "id": "typescript",
+      "name": "TypeScript"
+    },
+    {
+      "id": "vue",
+      "name": "Vue"
+    },
+    {
+      "id": "git",
+      "name": "Git"
+    },
+    {
+      "id": "python",
+      "name": "Python"
+    },
+    {
+      "id": "sql",
+      "name": "SQL"
+    },
+    {
+      "id": "api",
+      "name": "API / 接口"
+    },
+    {
+      "id": "testing",
+      "name": "软件测试"
+    },
+    {
+      "id": "communication",
+      "name": "沟通协作"
+    }
+  ],
+  "courses": [
+    {
+      "id": "programming-basics",
+      "name": "程序设计基础",
+      "kind": "必修",
+      "semester": 1,
+      "credits": 3,
+      "prerequisites": [],
+      "topics": ["变量与类型", "条件与循环", "函数与模块", "文件读写"],
+      "skillIds": ["programming"],
+      "taskIds": ["foundation"]
+    },
+    {
+      "id": "web-basics",
+      "name": "Web 开发基础",
+      "kind": "必修",
+      "semester": 2,
+      "credits": 2,
+      "prerequisites": ["programming-basics"],
+      "topics": ["HTML 语义结构", "CSS 布局", "响应式设计", "浏览器调试"],
+      "skillIds": ["html"],
+      "taskIds": ["html"]
+    },
+    {
+      "id": "web-programming",
+      "name": "Web 程序设计",
+      "kind": "必修",
+      "semester": 3,
+      "credits": 3,
+      "prerequisites": ["web-basics"],
+      "topics": ["DOM 与事件", "表单校验", "数据筛选", "本地存储"],
+      "skillIds": ["javascript", "html"],
+      "taskIds": ["javascript"]
+    },
+    {
+      "id": "web-programming-advanced",
+      "name": "Web 程序设计（拓展）",
+      "kind": "选修",
+      "semester": 4,
+      "credits": 2,
+      "prerequisites": ["web-programming"],
+      "topics": ["类型系统", "接口建模", "泛型基础", "类型检查"],
+      "skillIds": ["typescript"],
+      "taskIds": ["typescript"]
+    },
+    {
+      "id": "frontend-framework",
+      "name": "前端框架实践（拓展）",
+      "kind": "选修",
+      "semester": 4,
+      "credits": 2,
+      "prerequisites": ["web-programming-advanced"],
+      "topics": ["组件拆分", "路由", "跨页状态", "组件复用"],
+      "skillIds": ["vue", "javascript"],
+      "taskIds": ["vue"]
+    },
+    {
+      "id": "software-engineering-practice",
+      "name": "软件工程实践",
+      "kind": "必修",
+      "semester": 4,
+      "credits": 3,
+      "prerequisites": ["programming-basics"],
+      "topics": ["版本控制", "分支协作", "代码评审", "单元测试"],
+      "skillIds": ["git", "testing", "communication"],
+      "taskIds": ["git"]
+    },
+    {
+      "id": "python-programming",
+      "name": "Python 程序设计",
+      "kind": "必修",
+      "semester": 3,
+      "credits": 3,
+      "prerequisites": ["programming-basics"],
+      "topics": ["数据结构", "文件读写", "异常处理", "模块化"],
+      "skillIds": ["python"],
+      "taskIds": ["python"]
+    },
+    {
+      "id": "database-principles",
+      "name": "数据库原理",
+      "kind": "必修",
+      "semester": 4,
+      "credits": 3,
+      "prerequisites": ["python-programming"],
+      "topics": ["关系模型", "SQL 查询", "主键与关联", "事务基础"],
+      "skillIds": ["sql"],
+      "taskIds": ["sql"]
+    },
+    {
+      "id": "web-development",
+      "name": "Web 开发 / 软件工程",
+      "kind": "必修",
+      "semester": 5,
+      "credits": 3,
+      "prerequisites": ["database-principles"],
+      "topics": ["HTTP 基础", "接口设计", "输入校验", "错误处理"],
+      "skillIds": ["api", "python"],
+      "taskIds": ["api"]
+    },
+    {
+      "id": "software-engineering-design",
+      "name": "软件工程课程设计",
+      "kind": "必修",
+      "semester": 6,
+      "credits": 4,
+      "prerequisites": ["web-development"],
+      "topics": ["需求分析", "迭代交付", "集成验证", "项目演示"],
+      "skillIds": ["communication", "testing"],
+      "taskIds": ["frontend-project", "backend-project"]
+    },
+    {
+      "id": "software-testing",
+      "name": "软件测试",
+      "kind": "选修",
+      "semester": 5,
+      "credits": 2,
+      "prerequisites": ["software-engineering-practice"],
+      "topics": ["测试用例设计", "边界与异常", "自动化测试", "缺陷记录"],
+      "skillIds": ["testing"],
+      "taskIds": []
+    },
+    {
+      "id": "team-practice",
+      "name": "软件工程团队实践",
+      "kind": "必修",
+      "semester": 6,
+      "credits": 2,
+      "prerequisites": ["software-engineering-practice"],
+      "topics": ["分工协作", "评审沟通", "成果表达"],
+      "skillIds": ["communication"],
+      "taskIds": []
+    },
+    {
+      "id": "web-development-practice",
+      "name": "Web 开发实践（选做）",
+      "kind": "选修",
+      "semester": 5,
+      "credits": 1,
+      "prerequisites": ["web-programming"],
+      "topics": ["可访问性", "键盘操作", "错误提示", "移动布局"],
+      "skillIds": ["html", "javascript", "testing"],
+      "taskIds": ["frontend-extension"]
+    },
+    {
+      "id": "software-testing-optional",
+      "name": "软件测试（选做）",
+      "kind": "选修",
+      "semester": 6,
+      "credits": 1,
+      "prerequisites": ["software-testing"],
+      "topics": ["回归测试", "异常输入覆盖", "测试报告"],
+      "skillIds": ["python", "testing"],
+      "taskIds": ["backend-extension"]
+    },
+    {
+      "id": "team-practice-optional",
+      "name": "软件工程团队实践（选做）",
+      "kind": "选修",
+      "semester": 6,
+      "credits": 1,
+      "prerequisites": ["software-engineering-design"],
+      "topics": ["作品整理", "演示脚本", "反馈复盘"],
+      "skillIds": ["communication"],
+      "taskIds": ["portfolio"]
+    },
+    {
+      "id": "math-exam",
+      "name": "数学备考（路径假设）",
+      "kind": "备考",
+      "semester": null,
+      "credits": 0,
+      "prerequisites": [],
+      "topics": ["高等数学", "线性代数", "错题复盘"],
+      "skillIds": [],
+      "taskIds": ["math"]
+    },
+    {
+      "id": "english-exam",
+      "name": "英语备考（路径假设）",
+      "kind": "备考",
+      "semester": null,
+      "credits": 0,
+      "prerequisites": [],
+      "topics": ["阅读理解", "词汇", "写作"],
+      "skillIds": [],
+      "taskIds": ["english"]
+    }
+  ],
+  "projects": [
+    {
+      "id": "cli-todo",
+      "name": "命令行待办工具",
+      "kind": "课程项目",
+      "hours": 6,
+      "courseIds": ["programming-basics"],
+      "skillIds": ["programming"],
+      "taskIds": ["foundation"],
+      "outcome": "独立实现输入、条件分支与文件存储",
+      "acceptance": "能演示新增、完成、保存与重新读取",
+      "deliverables": ["源码", "运行说明"]
+    },
+    {
+      "id": "responsive-campus-page",
+      "name": "响应式校园介绍页",
+      "kind": "课程项目",
+      "hours": 8,
+      "courseIds": ["web-basics"],
+      "skillIds": ["html"],
+      "taskIds": ["html"],
+      "outcome": "在手机和桌面完成页面布局验证",
+      "acceptance": "320px—1920px 页面无横向溢出",
+      "deliverables": ["源码", "六档宽度截图"]
+    },
+    {
+      "id": "campus-signup-app",
+      "name": "校园活动报名应用",
+      "kind": "课程项目",
+      "hours": 12,
+      "courseIds": ["web-programming"],
+      "skillIds": ["javascript", "html"],
+      "taskIds": ["javascript"],
+      "outcome": "完成表单、数据筛选与交互反馈",
+      "acceptance": "处理空输入、重复报名和数据恢复",
+      "deliverables": ["源码", "交互流程说明"]
+    },
+    {
+      "id": "typed-activity-module",
+      "name": "有类型的活动数据模块",
+      "kind": "课程项目",
+      "hours": 8,
+      "courseIds": ["web-programming-advanced"],
+      "skillIds": ["typescript"],
+      "taskIds": ["typescript"],
+      "outcome": "类型检查通过，核心数据有明确类型",
+      "acceptance": "类型检查无错误，移除无用途的封装",
+      "deliverables": ["源码", "类型定义说明"]
+    },
+    {
+      "id": "vue-activity-workbench",
+      "name": "Vue 校园活动工作台",
+      "kind": "课程项目",
+      "hours": 14,
+      "courseIds": ["frontend-framework"],
+      "skillIds": ["vue", "javascript"],
+      "taskIds": ["vue"],
+      "outcome": "实现组件、路由和跨页状态",
+      "acceptance": "返回修改数据后页面显示与状态一致",
+      "deliverables": ["源码", "组件说明"]
+    },
+    {
+      "id": "collab-repo",
+      "name": "双人协作练习仓库",
+      "kind": "课程项目",
+      "hours": 6,
+      "courseIds": ["software-engineering-practice"],
+      "skillIds": ["git"],
+      "taskIds": ["git"],
+      "outcome": "完成分支协作、代码评审与一次冲突处理",
+      "acceptance": "提交记录可追溯到评审意见与冲突处理",
+      "deliverables": ["仓库地址", "提交与评审记录"]
+    },
+    {
+      "id": "course-data-tool",
+      "name": "课程数据处理工具",
+      "kind": "课程项目",
+      "hours": 10,
+      "courseIds": ["python-programming"],
+      "skillIds": ["python"],
+      "taskIds": ["python"],
+      "outcome": "完成输入校验、文件读写与异常处理",
+      "acceptance": "缺失文件、空数据和非法输入均有明确提示",
+      "deliverables": ["源码", "异常处理说明"]
+    },
+    {
+      "id": "course-db-module",
+      "name": "课程管理数据模块",
+      "kind": "课程项目",
+      "hours": 10,
+      "courseIds": ["database-principles"],
+      "skillIds": ["sql"],
+      "taskIds": ["sql"],
+      "outcome": "设计表结构并完成关联查询",
+      "acceptance": "能解释主键与关联，完成多表查询",
+      "deliverables": ["建表脚本", "查询示例"]
+    },
+    {
+      "id": "campus-service-api",
+      "name": "校园服务接口联调",
+      "kind": "课程项目",
+      "hours": 12,
+      "courseIds": ["web-development"],
+      "skillIds": ["api", "python"],
+      "taskIds": ["api"],
+      "outcome": "记录接口输入、输出和异常情况",
+      "acceptance": "演示正常请求、错误输入和数据查询",
+      "deliverables": ["接口说明", "联调记录"]
+    },
+    {
+      "id": "key-flow-testing",
+      "name": "项目关键流程验证",
+      "kind": "课程项目",
+      "hours": 8,
+      "courseIds": ["software-testing"],
+      "skillIds": ["testing"],
+      "taskIds": [],
+      "outcome": "提交关键规则和用户流程的验证记录",
+      "acceptance": "覆盖空数据、异常输入和重复操作",
+      "deliverables": ["用例清单", "验证记录"]
+    },
+    {
+      "id": "demo-retro",
+      "name": "项目演示与复盘",
+      "kind": "课程项目",
+      "hours": 6,
+      "courseIds": ["team-practice"],
+      "skillIds": ["communication"],
+      "taskIds": [],
+      "outcome": "清楚解释方案选择、实践成果与反馈改进",
+      "acceptance": "十分钟演示能回答方案取舍与验证过程",
+      "deliverables": ["演示提纲", "复盘记录"]
+    },
+    {
+      "id": "frontend-project-delivery",
+      "name": "校园活动报名项目",
+      "kind": "综合项目",
+      "hours": 26,
+      "courseIds": ["software-engineering-design"],
+      "skillIds": ["vue", "api", "javascript"],
+      "taskIds": ["frontend-project"],
+      "outcome": "可演示项目、源码与验证记录",
+      "acceptance": "完整走通报名流程并解释方案取舍",
+      "deliverables": ["可运行项目", "源码", "验证记录"]
+    },
+    {
+      "id": "backend-project-delivery",
+      "name": "课程管理后端项目",
+      "kind": "综合项目",
+      "hours": 26,
+      "courseIds": ["software-engineering-design"],
+      "skillIds": ["python", "sql", "api"],
+      "taskIds": ["backend-project"],
+      "outcome": "可演示服务、数据说明与源码",
+      "acceptance": "完成一个完整业务并通过关键规则验证",
+      "deliverables": ["可运行服务", "数据说明", "源码"]
+    },
+    {
+      "id": "accessibility-mini-app",
+      "name": "可访问性小项目",
+      "kind": "拓展项目",
+      "hours": 10,
+      "courseIds": ["web-development-practice"],
+      "skillIds": ["html", "javascript", "testing"],
+      "taskIds": ["frontend-extension"],
+      "outcome": "键盘可操作的小型应用与测试记录",
+      "acceptance": "覆盖键盘操作、错误提示和手机布局",
+      "deliverables": ["源码", "可访问性检查记录"]
+    },
+    {
+      "id": "backend-flow-tests",
+      "name": "关键业务自动化验证",
+      "kind": "拓展项目",
+      "hours": 8,
+      "courseIds": ["software-testing-optional"],
+      "skillIds": ["python", "testing"],
+      "taskIds": ["backend-extension"],
+      "outcome": "关键业务的自动化验证与报告",
+      "acceptance": "覆盖空数据、异常输入和重复操作",
+      "deliverables": ["测试脚本", "验证报告"]
+    },
+    {
+      "id": "portfolio-pack",
+      "name": "作品集与演示材料",
+      "kind": "拓展项目",
+      "hours": 6,
+      "courseIds": ["team-practice-optional"],
+      "skillIds": ["communication"],
+      "taskIds": ["portfolio"],
+      "outcome": "项目说明、演示记录与实习准备材料",
+      "acceptance": "清楚说明解决的问题、个人贡献、验证过程与改进",
+      "deliverables": ["项目说明", "演示记录"]
+    },
+    {
+      "id": "math-drill-log",
+      "name": "错题与知识点记录",
+      "kind": "备考记录",
+      "hours": 12,
+      "courseIds": ["math-exam"],
+      "skillIds": [],
+      "taskIds": ["math"],
+      "outcome": "错题与知识点记录",
+      "acceptance": "每周完成练习并复盘薄弱点",
+      "deliverables": ["错题本", "每周复盘"]
+    },
+    {
+      "id": "english-reading-log",
+      "name": "阅读与词汇复盘记录",
+      "kind": "备考记录",
+      "hours": 12,
+      "courseIds": ["english-exam"],
+      "skillIds": [],
+      "taskIds": ["english"],
+      "outcome": "阅读与词汇复盘记录",
+      "acceptance": "记录练习过程与易错问题",
+      "deliverables": ["阅读记录", "词汇清单"]
+    }
+  ]
+}
