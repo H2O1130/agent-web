@@ -36,8 +36,12 @@ agent-web/
 │   └── src/ tests/
 └── backend/
     ├── 开发说明.md            后端运行与约定
-    └── semester-planning/
-        └── README.md         接口、校验、DeepSeek 配置
+    ├── semester-planning/     方案生成（/api/plan）
+    │   └── README.md         接口、校验、DeepSeek 配置
+    ├── ai-chat/               对话调整（/api/chat，与规划同进程）
+    │   └── README.md         边界、接口、错误码
+    ├── skill_merger/          技能归并（纯库）
+    └── course_mapping/        课程与实践映射（纯库）
 ```
 
 ## 分支与合并

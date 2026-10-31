@@ -1,6 +1,8 @@
 # 分学期规划模块
 
-输入画像与岗位样本，输出与前端同构的 `Plan`。提供 `POST /api/plan` 与 `POST /api/llm/verify`。
+输入画像与岗位样本，输出与前端同构的 `Plan`。提供 `POST /api/plan`、`GET /api/llm/status`、`POST /api/llm/verify`。
+
+对话调整已拆到独立模块 [`../ai-chat`](../ai-chat/README.md)，由本模块的 `app.main` 在同一进程挂载 `/api/chat`。
 
 状态：T1—T8 已实现，按学期与寒暑假组织，含规划总览、微任务与折叠详情；`pytest` 52 passed、1 skipped；前端 29 项单测；真实 DeepSeek 与本地/远程 E2E 均已通过。
 

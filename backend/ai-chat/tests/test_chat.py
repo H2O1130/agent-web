@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from ai_chat.models import ChatMessage, ChatPlan, ChatRequest
 from app.api.deps import get_llm_client
 from app.main import app
-from app.models import ChatMessage, ChatPlan, ChatRequest
 
 
 class FakeClient:
