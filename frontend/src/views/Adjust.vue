@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowDown, ArrowRight, Check, Clock, GitBranch, RefreshCw } from '@lucide/vue'
+import { ArrowDown, ArrowRight, Check, Clock, GitBranch, RefreshCw, Sparkles } from '@lucide/vue'
+import { DEFAULT_ADJUST_MODE, createModePicker, type AdjustMode } from '../adjustMode'
+import ChatAssistant from '../components/ChatAssistant.vue'
 import ChoiceCard from '../components/ChoiceCard.vue'
 import { clone } from '../clone'
 import { pathNames, roleNames, taskPeriod } from '../data'
@@ -10,6 +12,13 @@ import type { CareerPath, Plan, Profile } from '../types'
 
 const store = useWorkspace()
 
+const AI_PROMPTS = [
+  '每周时间排太满，帮我减一减',
+  '想加一个竞赛或项目经历',
+  '方向还没定，想先都试试',
+  '想早点开始准备考研',
+]
+
 const statusNames = ['全部', '保留', '推迟', '新增', '移除']
 const snapshot = store.activePlan
 
@@ -18,11 +27,38 @@ const draft = ref<Profile | undefined>(original.value ? clone(original.value.pro
 const result = ref<Plan>()
 const error = ref('')
 const activeStatus = ref('全部')
+const chatWrap = ref<HTMLElement>()
+const chatPanel = ref<InstanceType<typeof ChatAssistant>>()
+
+const mode = ref<AdjustMode>(DEFAULT_ADJUST_MODE)
+const pickMode = createModePicker()
+
+/** 默认停在「和 AI 聊聊」；单点切换，双击/连击回到默认。 */
+function pick(target: AdjustMode): void {
+  mode.value = pickMode(mode.value, target, Date.now())
+}
+
+/** 生成完直接看变化，不参与连击判定。 */
+function showManual(): void {
+  mode.value = 'manual'
+}
+
+function openAi(): void {
+  chatWrap.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  chatPanel.value?.focusInput()
+}
+
+function onAiApplied(next: Plan): void {
+  activeStatus.value = '全部'
+  result.value = next
+  draft.value = clone(next.profile)
+}
 
 const changes = computed(() => {
   if (!original.value || !result.value) return []
   return diffPlans(original.value, result.value)
 })
+const chatPlan = computed(() => store.activePlan ?? original.value)
 
 const visibleChanges = computed(() => {
   if (activeStatus.value === '全部') return changes.value
@@ -51,7 +87,12 @@ async function adjust(): Promise<void> {
     : store.jobs.filter(job => job.role === nextProfile.role && job.source === 'demo').map(job => job.id)
 
   try {
-    result.value = await store.generate(nextProfile, jobIds)
+    // 已经通过对话换掉的模块、补充的任务要跟着走，否则改个时长就全丢
+    const latest = result.value ?? base
+    result.value = await store.generate(nextProfile, jobIds, {
+      customTasks: latest.customTasks,
+      dropModules: latest.dropModules,
+    })
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请检查调整条件后重试。'
   }
@@ -121,15 +162,47 @@ async function applyHoursDemo(): Promise<void> {
           </fieldset>
 
           <p class="small-label">考研安排是可修改的路径假设，不代替个人选择。</p>
-          <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
-          <button class="button primary full-width" :disabled="store.generating" @click="adjust">
-            {{ store.generating ? '正在生成…' : '调整成长方案' }}<ArrowRight :size="17" />
-          </button>
-          <button class="demo-adjust" :disabled="store.generating" @click="applyHoursDemo">
-            <RefreshCw :size="15" />一键演示：每周 12 小时改为 6 小时
-          </button>
-          <p class="small-label">演示会将时间设为 6 小时；左侧原方案保持不变。</p>
+          <div class="adjust-modes">
+            <div class="adjust-switch" role="tablist" aria-label="选择调整方式">
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="mode === 'manual'"
+                :class="{ active: mode === 'manual' }"
+                @click="pick('manual')"
+              >调整成长方案</button>
+              <button
+                type="button"
+                role="tab"
+                :aria-selected="mode === 'ai'"
+                :class="{ active: mode === 'ai' }"
+                @click="pick('ai')"
+              ><Sparkles :size="15" />和 AI 聊聊</button>
+            </div>
+
+            <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+
+            <div v-if="mode === 'manual'" class="adjust-action">
+              <button class="button primary full-width" :disabled="store.generating" @click="adjust">
+                {{ store.generating ? '正在生成…' : '按这些条件重新生成' }}<ArrowRight :size="17" />
+              </button>
+              <button class="demo-adjust" :disabled="store.generating" @click="applyHoursDemo">
+                <RefreshCw :size="15" />一键演示：每周 12 小时改为 6 小时
+              </button>
+              <p class="small-label">演示会将时间设为 6 小时；左侧原方案保持不变。</p>
+            </div>
+
+            <div v-else class="adjust-action">
+              <p class="small-label">
+                直接说出你的顾虑（太满、方向不确定、想加竞赛…），AI 会结合现有方案给建议；确认后按同样的规则生成新版本。
+              </p>
+              <button class="button primary full-width" @click="openAi">
+                <Sparkles :size="16" />打开对话，聊聊这次调整
+              </button>
+              <p class="small-label">对话在右侧，旧方案会保留，确认后才生成新版本。</p>
+            </div>
+          </div>
         </section>
 
         <section class="adjust-results">
@@ -151,47 +224,75 @@ async function applyHoursDemo(): Promise<void> {
             </article>
           </div>
 
-          <div v-if="!result" class="adjust-placeholder">
-            <span class="icon-tile"><GitBranch :size="30" :stroke-width="1.4" /></span>
-            <h2>调整不是推倒重来</h2>
-            <p>修改左侧条件后，查看哪些任务保留、<br />哪些需要推迟，以及每一项变化的原因。</p>
-            <div><Check :size="15" />旧方案始终保留 <span>·</span> 按实际规则重新计算</div>
+          <div v-show="mode === 'manual'" class="adjust-pane">
+            <template v-if="result">
+              <div class="notice-bar success-notice" role="status">
+                <span><Check :size="16" />新方案已保存，原方案未修改。</span>
+                <RouterLink to="/roadmap">查看完整新路线 <ArrowRight :size="15" /></RouterLink>
+              </div>
+
+              <div class="change-filters">
+                <button
+                  v-for="status in statusNames"
+                  :key="status"
+                  :class="{ active: activeStatus === status }"
+                  @click="activeStatus = status"
+                >{{ status }}<span>{{ countOf(status) }}</span></button>
+              </div>
+
+              <div class="change-list">
+                <article v-for="change in visibleChanges" :key="change.id" class="change-card">
+                  <div>
+                    <span class="status-tag" :class="`status-${change.status}`">{{ change.status }}</span>
+                    <h3>{{ change.title }}</h3>
+                  </div>
+
+                  <div class="change-periods">
+                    <span><small>调整前</small>{{ change.before ? taskPeriod(change.before) : '原方案无此任务' }}</span>
+                    <ArrowDown :size="15" />
+                    <span><small>调整后</small>{{ change.after ? taskPeriod(change.after) : '已移出本方案' }}</span>
+                  </div>
+
+                  <p>{{ change.reason }}</p>
+                </article>
+
+                <p v-if="!visibleChanges.length" class="empty-small">本次没有“{{ activeStatus }}”的任务。</p>
+              </div>
+            </template>
+
+            <div v-else class="adjust-empty">
+              <span class="icon-tile"><GitBranch :size="26" :stroke-width="1.4" /></span>
+              <div>
+                <h3>还没有生成新方案</h3>
+                <p>在左侧选好条件，点「调整成长方案」。这里会列出哪些保留、哪些推迟，以及每一项变化的原因。</p>
+              </div>
+            </div>
           </div>
 
-          <template v-else>
-            <div class="notice-bar success-notice" role="status">
-              <span><Check :size="16" />新方案已保存，原方案未修改。</span>
-              <RouterLink to="/roadmap">查看完整新路线 <ArrowRight :size="15" /></RouterLink>
+          <div v-show="mode === 'ai'" class="adjust-pane">
+            <div v-if="result" class="notice-bar success-notice" role="status">
+              <span><Check :size="16" />已生成 V{{ result.version }}，旧方案保留。</span>
+              <button type="button" class="text-button" @click="showManual">
+                查看变化 <ArrowRight :size="15" />
+              </button>
             </div>
 
-            <div class="change-filters">
-              <button
-                v-for="status in statusNames"
-                :key="status"
-                :class="{ active: activeStatus === status }"
-                @click="activeStatus = status"
-              >{{ status }}<span>{{ countOf(status) }}</span></button>
+            <div v-if="chatPlan" ref="chatWrap" class="adjust-ai">
+              <ChatAssistant
+                ref="chatPanel"
+                variant="hero"
+                :plan="chatPlan"
+                :prompts="AI_PROMPTS"
+                @applied="onAiApplied"
+              />
+
+              <ul class="ai-guarantees">
+                <li><Check :size="14" />旧方案始终保留</li>
+                <li><Check :size="14" />按实际规则重新计算</li>
+                <li><Check :size="14" />确认后才生成新版本</li>
+              </ul>
             </div>
-
-            <div class="change-list">
-              <article v-for="change in visibleChanges" :key="change.id" class="change-card">
-                <div>
-                  <span class="status-tag" :class="`status-${change.status}`">{{ change.status }}</span>
-                  <h3>{{ change.title }}</h3>
-                </div>
-
-                <div class="change-periods">
-                  <span><small>调整前</small>{{ change.before ? taskPeriod(change.before) : '原方案无此任务' }}</span>
-                  <ArrowDown :size="15" />
-                  <span><small>调整后</small>{{ change.after ? taskPeriod(change.after) : '已移出本方案' }}</span>
-                </div>
-
-                <p>{{ change.reason }}</p>
-              </article>
-
-              <p v-if="!visibleChanges.length" class="empty-small">本次没有“{{ activeStatus }}”的任务。</p>
-            </div>
-          </template>
+          </div>
         </section>
       </div>
     </template>

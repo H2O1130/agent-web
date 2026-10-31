@@ -109,3 +109,22 @@ def test_verify_timeout_returns_504(client):
 
     assert response.status_code == 504
     assert response.json()["code"] == "LLM_TIMEOUT"
+
+
+def test_status_reports_server_key(client, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "env-key")
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+    response = client.get("/api/llm/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"configured": True, "model": "deepseek-chat"}
+
+
+def test_status_without_key_is_unconfigured(client, monkeypatch):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+    response = client.get("/api/llm/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"configured": False, "model": ""}

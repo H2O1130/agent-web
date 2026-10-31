@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -11,8 +11,10 @@ import {
   Flag,
   GitBranch,
   Route,
+  Sparkles,
   Target,
 } from '@lucide/vue'
+import AiChatDialog from '../components/AiChatDialog.vue'
 import { useWorkspace } from '../store'
 import { pathNames, roleNames } from '../data'
 import type { Plan, PlannedTask } from '../types'
@@ -33,6 +35,19 @@ interface PlanPeriod {
 }
 
 const store = useWorkspace()
+const aiOpen = ref(false)
+
+function openAi(): void {
+  aiOpen.value = true
+}
+
+function closeAi(): void {
+  aiOpen.value = false
+}
+
+function onAiApplied(): void {
+  aiOpen.value = false
+}
 
 const plan = computed(() => store.activePlan)
 const overview = computed(() => plan.value?.overview)
@@ -250,6 +265,9 @@ function exportPlan(): void {
         </div>
 
         <div class="heading-actions">
+          <button class="button secondary ai-open-button" @click="openAi">
+            <Sparkles :size="16" />和 AI 聊聊规划
+          </button>
           <button class="button secondary" @click="exportPlan"><Download :size="16" />导出计划</button>
           <RouterLink to="/adjust" class="button primary"><GitBranch :size="17" />调整方案</RouterLink>
         </div>
@@ -279,6 +297,13 @@ function exportPlan(): void {
           <small>每一次完成，都值得被记录</small>
         </div>
       </section>
+
+      <AiChatDialog
+        :open="aiOpen"
+        :plan="plan"
+        @close="closeAi"
+        @applied="onAiApplied"
+      />
 
       <section v-if="overview" class="plan-overview">
         <div class="overview-heading">
@@ -326,7 +351,12 @@ function exportPlan(): void {
             <span class="eyebrow">以学期为单位，向目标靠近</span>
             <h2>大学四年成长路线</h2>
           </div>
-          <span class="tag">课程映射为示例</span>
+          <div class="section-heading-actions">
+            <span class="tag">课程映射为示例</span>
+            <button class="button secondary ai-open-button" @click="openAi">
+              <Sparkles :size="16" />和 AI 聊聊怎么调
+            </button>
+          </div>
         </div>
 
         <p v-if="!periods.length" class="muted">

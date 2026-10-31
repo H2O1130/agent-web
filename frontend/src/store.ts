@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { remotePlanEnabled, requestPlan } from './api'
+import { remotePlanEnabled, requestPlan, type PlanExtras } from './api'
 import { clone } from './clone'
 import { defaultProfile, demoJobs } from './data'
 import { createPlan } from './planning'
@@ -173,7 +173,7 @@ export const useWorkspace = defineStore('workspace', () => {
     step.value = 1
   }
 
-  async function generate(next: Profile, ids: string[]): Promise<Plan> {
+  async function generate(next: Profile, ids: string[], extras: PlanExtras = {}): Promise<Plan> {
     if (generating.value) throw new Error('正在生成方案，请稍候。')
 
     const snapshot = clone(next)
@@ -185,13 +185,22 @@ export const useWorkspace = defineStore('workspace', () => {
     const previousDraft = JSON.stringify(profile.value)
     const previousSelection = JSON.stringify(selectedIds.value)
 
+    // 自定义任务/被替换的模块跟着方案走，否则下次重新生成就丢了
+    const customTasks = extras.customTasks ?? []
+    const dropModules = extras.dropModules ?? []
+    const hasExtras = customTasks.length > 0 || dropModules.length > 0
+
     generating.value = true
     try {
-      const plan = remotePlanEnabled()
-        ? await requestPlan(snapshot, chosenJobs, version)
+      const built = remotePlanEnabled()
+        ? await requestPlan(snapshot, chosenJobs, version, { customTasks, dropModules })
         : createPlan(snapshot, chosenJobs, version)
 
       if (revision !== workspaceRevision) throw new Error('工作区已重置，已忽略这次生成结果。')
+
+      const plan: Plan = hasExtras
+        ? { ...built, customTasks: [...customTasks], dropModules: [...dropModules] }
+        : built
 
       plans.value.unshift(plan)
       activeId.value = plan.id

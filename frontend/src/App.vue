@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowUpRight, Compass, KeyRound, Menu, X } from '@lucide/vue'
+import { remotePlanEnabled, requestLlmStatus } from './api'
 import LlmSettingsDialog from './components/LlmSettingsDialog.vue'
-import { remotePlanEnabled } from './api'
-import { llmVerified } from './llm'
+import { llmSettingsOpen, llmReady, closeLlmSettings, openLlmSettings, setServerLlm } from './llm'
 import { useWorkspace } from './store'
 
 interface NavItem {
@@ -21,18 +21,22 @@ const navItems: NavItem[] = [
 
 const route = useRoute()
 const store = useWorkspace()
-const backendEnabled = remotePlanEnabled()
-const modelStatus = computed(() =>
-  !backendEnabled ? '本地演示' : llmVerified.value ? '模型已连接' : '模型待验证',
-)
 
 const menuOpen = ref(false)
 const menuButton = ref<HTMLButtonElement>()
 const mobileMenu = ref<HTMLElement>()
 const main = ref<HTMLElement>()
 
-const settingsOpen = ref(false)
 const settingsButton = ref<HTMLButtonElement>()
+
+onMounted(async () => {
+  if (!remotePlanEnabled()) return
+  try {
+    setServerLlm(await requestLlmStatus())
+  } catch {
+    // 后端没起来时不打扰用户，页面里会有对应提示
+  }
+})
 
 const mobileNavItems = computed<NavItem[]>(() => [
   ...navItems,
@@ -47,11 +51,11 @@ watch(
 )
 
 function openSettings(): void {
-  settingsOpen.value = true
+  openLlmSettings()
 }
 
 async function closeSettings(): Promise<void> {
-  settingsOpen.value = false
+  closeLlmSettings()
   await nextTick()
   settingsButton.value?.focus()
 }
@@ -116,8 +120,8 @@ function menuKeys(event: KeyboardEvent): void {
       </nav>
 
       <div class="header-actions">
-        <span class="demo-badge" :class="{ 'is-live': backendEnabled && llmVerified }">
-          <span></span>{{ modelStatus }}
+        <span class="demo-badge" :class="{ 'is-live': llmReady }">
+          <span></span>{{ llmReady ? '已接入模型' : '演示模式' }}
         </span>
         <button
           ref="settingsButton"
@@ -170,13 +174,13 @@ function menuKeys(event: KeyboardEvent): void {
     <RouterView />
   </main>
 
-  <LlmSettingsDialog :open="settingsOpen" @close="closeSettings" />
+  <LlmSettingsDialog :open="llmSettingsOpen" @close="closeSettings" />
 
   <footer class="site-footer">
     <div>
       <RouterLink to="/" class="footer-brand"><Compass :size="18" /> 学途 PathPilot</RouterLink>
       <span>让学习有方向，让成长有依据。</span>
     </div>
-    <span>{{ backendEnabled ? '岗位洞察本地预览 · 成长路线后端规划' : '岗位洞察与成长路线均为本地演示' }}</span>
+    <span>本地样本与规则演示</span>
   </footer>
 </template>

@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,7 +7,8 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_llm_client
 from app.llm.client import LLMTimeout
 from app.main import app
-from app.models import PlanRequest
+from app.models import CustomTask, PlanRequest
+from app.services.micro_catalog import catalog_with_custom, normalize_custom_tasks
 
 
 class FakeClient:
@@ -163,3 +165,64 @@ def test_bad_request_shape_returns_400(client):
 
     assert response.status_code == 400
     assert response.json()["code"] == "INVALID_REQUEST"
+
+
+def test_plan_swaps_module_for_custom_tasks(client, profile, jobs, valid_llm_plan):
+    custom = [
+        CustomTask(
+            id="java",
+            title="Java 基础语法",
+            action="跟着教程写 20 个小练习，把集合和异常过一遍",
+            done="能独立写一个控制台记账程序",
+            weeks=2,
+            moduleName="Java 夯实",
+        )
+    ]
+    catalog = catalog_with_custom(profile, normalize_custom_tasks(custom), ["typescript"])
+    allowed = {task.id for task in catalog}
+
+    reply = deepcopy(valid_llm_plan)
+    for period in reply["periods"]:
+        period["items"] = [item for item in period["items"] if item["id"] in allowed]
+    reply["periods"][0]["items"].append({"id": "custom-java", "weeks": "第 1—2 周"})
+
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient([reply])
+
+    payload = PlanRequest(
+        profile=profile,
+        jobs=jobs,
+        version=2,
+        customTasks=custom,
+        dropModules=["typescript"],
+    ).model_dump()
+    response = client.post("/api/plan", json=payload)
+
+    assert response.status_code == 200
+    plan = response.json()["plan"]
+    assert plan["version"] == 2
+
+    ids = {task["id"] for task in plan["tasks"]}
+    assert "custom-java" in ids
+    assert "ts-types" not in ids
+
+    java = next(task for task in plan["tasks"] if task["id"] == "custom-java")
+    assert java["title"] == "Java 基础语法"
+    assert java["moduleName"] == "Java 夯实"
+    assert java["kind"] == "专项"
+    assert java["weeks"] == 2
+    assert java["semester"] == 3
+
+
+def test_bad_custom_task_returns_400(client, profile, jobs):
+    app.dependency_overrides[get_llm_client] = lambda: FakeClient([])
+
+    payload = PlanRequest(
+        profile=profile,
+        jobs=jobs,
+        version=1,
+        customTasks=[{"id": "java", "title": "", "action": "写练习", "done": "能跑通"}],
+    ).model_dump()
+    response = client.post("/api/plan", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "INVALID_CUSTOM_TASKS"

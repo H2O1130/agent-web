@@ -46,6 +46,16 @@
 | `X-DeepSeek-Model` | 覆盖 `DEEPSEEK_MODEL` |
 | `X-DeepSeek-Base-URL` | 覆盖 `DEEPSEEK_BASE_URL` |
 
+### 用户自带密钥的接入流程
+
+1. 用户到 <https://platform.deepseek.com/api_keys> 注册并创建 API Key（形如 `sk-…`）。
+2. 起后端：`.venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000`。这条路**不需要 `.env`**，服务端只做转发。
+3. 打开前端，顶栏钥匙图标（或对话区的「填入密钥」）→ 粘贴密钥 → 「测试连接」。
+   测试会先 `GET /health` 确认是本项目后端，再 `POST /api/llm/verify` 用它真的调一次 DeepSeek。
+4. 通过后保存：密钥留在浏览器，之后所有请求都带 `X-DeepSeek-Key`，顶栏显示「已接入模型」。
+
+换设备、清浏览器数据后需要重新填；密钥只经过后端转发，不落库、不写日志。部署到公网时务必用 HTTPS。
+
 `POST /api/llm/verify`（同上述请求头，无请求体）→ `{ "ok": true, "model": "deepseek-chat" }`；失败：503 `LLM_NOT_CONFIGURED`、401 `LLM_UNAUTHORIZED`、504 `LLM_TIMEOUT`。校验只发一次 4 token 的探测请求。
 
 ## DeepSeek V4.1 Flash

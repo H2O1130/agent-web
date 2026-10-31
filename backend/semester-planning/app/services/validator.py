@@ -59,6 +59,9 @@ def validate_periods(
             if task is None:
                 continue
             for prerequisite in prerequisites_for(task, profile):
+                if prerequisite not in catalog_map:
+                    # 前置任务所在的模块被替换掉了（例如把 Python 换掉），不再要求它
+                    continue
                 if prerequisite not in position:
                     errors.append(f"{item.id} 的前置微任务 {prerequisite} 未安排")
                 elif position[prerequisite] >= (period_index, index):

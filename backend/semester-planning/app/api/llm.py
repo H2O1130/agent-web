@@ -7,6 +7,15 @@ from app.llm.client import LLMTimeout, LLMUnavailable
 router = APIRouter()
 
 
+@router.get("/api/llm/status")
+def status_endpoint(settings: SettingsDependency) -> dict:
+    """告诉前端服务端是否已经配好密钥，普通用户因此不需要自己填。"""
+    return {
+        "configured": settings.configured,
+        "model": settings.model if settings.configured else "",
+    }
+
+
 @router.post("/api/llm/verify")
 def verify_endpoint(settings: SettingsDependency, client: ClientDependency) -> dict:
     if client is None:

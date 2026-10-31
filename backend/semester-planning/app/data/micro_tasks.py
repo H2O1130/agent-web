@@ -23,6 +23,8 @@ class MicroTask:
     example: str = ""
     why: str = ""
     hours: int = 2
+    # 自定义任务自带模块名（如「Java 夯实」），优先于 MODULES 里的通用名称
+    label: str = ""
 
     def to_prompt(self) -> dict:
         return {
@@ -56,6 +58,7 @@ MODULES: dict[str, ModuleInfo] = {
     "backend-extension": ModuleInfo(
         "backend-extension", "后端测试", "软件测试（选做）"
     ),
+    "custom": ModuleInfo("custom", "自定义任务", "自主学习 / 项目实践"),
     "math": ModuleInfo("math", "数学备考", "数学备考（路径假设）"),
     "english": ModuleInfo("english", "英语备考", "英语备考（路径假设）"),
 }

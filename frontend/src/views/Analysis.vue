@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import JobsPicker from '../components/JobsPicker.vue'
+import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
 import { roleNames, skills } from '../data'
 import { analyzeJobs } from '../planning'
@@ -250,6 +251,25 @@ async function generate(): Promise<void> {
           </div>
         </aside>
       </div>
+
+      <section class="panel keyword-cloud-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">词频可视化</span>
+            <h2>关键词词云</h2>
+          </div>
+          <span class="tag">共 {{ analysis.length }} 个关键词</span>
+        </div>
+
+        <KeywordCloud :skills="analysis" :total="contextJobs.length" @select="selectSkill" />
+
+        <div class="cloud-legend">
+          <span><i class="cloud-dot required"></i>明确要求</span>
+          <span><i class="cloud-dot bonus"></i>加分项</span>
+          <span><i class="cloud-dot neutral"></i>表述不明</span>
+          <span class="small-label">字号越大，提及样本越多 · 点击关键词联动下方课程与实践</span>
+        </div>
+      </section>
 
       <section v-if="active && mapping" class="mapping-section">
         <div class="section-heading">
