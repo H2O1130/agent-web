@@ -7,24 +7,21 @@ import {
   Check,
   CircleCheck,
   Clock,
-  Code,
-  Compass,
   Target,
 } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import ChoiceCard from '../components/ChoiceCard.vue'
 import JobsPicker from '../components/JobsPicker.vue'
 import { clone } from '../clone'
-import { defaultProfile, pathNames, roleNames, scoreLabels, skills } from '../data'
+import { defaultProfile, pathNames, scoreLabels, skills } from '../data'
 import { useWorkspace } from '../store'
-import type { Role, ScoreKey } from '../types'
+import type { ScoreKey } from '../types'
 
 const store = useWorkspace()
 const router = useRouter()
 
 const stepNames = [
   '专业与学期',
-  '目标岗位',
   '技能基础',
   '可投入时间',
   '路径与兴趣',
@@ -33,7 +30,6 @@ const stepNames = [
 
 const stepTitles = [
   '先从现在的你开始',
-  '你想靠近哪一种工作？',
   '给现在的自己一个坐标',
   '每周，留多少时间给成长？',
   '找到适合你的发展节奏',
@@ -42,7 +38,6 @@ const stepTitles = [
 
 const stepDescriptions = [
   '课程与年级，帮助我们找到适合的起点。',
-  '选择一个目标，用招聘要求反推你的成长行动。',
   '基于真实经历自评，不确定的地方可以留白。',
   '安排能完成的行动，比排满一张计划表更重要。',
   '方向没有标准答案，之后也可以随时调整。',
@@ -59,7 +54,7 @@ const transition = ref(false)
 
 const stepTitle = computed(() => stepTitles[store.step - 1])
 const stepDescription = computed(() => stepDescriptions[store.step - 1])
-const nextLabel = computed(() => (store.step === 6 ? '分析岗位并生成路线' : '下一步'))
+const nextLabel = computed(() => (store.step === 5 ? '分析岗位并生成路线' : '下一步'))
 const pickableSkills = computed(() => skills.filter(skill => skill.id !== 'communication'))
 const interestHint = computed(() =>
   store.profile.interests.length === 3 ? ' · 已达上限，取消一项后可替换' : ' · 也可以暂时留空',
@@ -75,13 +70,6 @@ watch(
   },
   { deep: true },
 )
-
-function chooseRole(role: Role): void {
-  store.profile.role = role
-  store.selectedIds = store.jobs
-    .filter(job => job.role === role && job.source === 'demo')
-    .map(job => job.id)
-}
 
 function toggleInterest(interest: string): void {
   const current = store.profile.interests
@@ -134,11 +122,13 @@ function clearScore(key: ScoreKey): void {
 function validateStep(): string {
   if (store.step === 1 && !store.profile.major.trim()) return '请填写或选择你的专业。'
 
-  if (store.step === 4) {
+  if (store.step === 3) {
     const hours = store.profile.hours
     const valid = Number.isFinite(hours) && hours >= 0 && hours <= 30
     if (!valid) return '每周时间应为 0—30 小时，请检查输入。'
   }
+
+  if (store.step === 5 && store.selectedJobs.length === 0) return '请至少选择一条岗位样本。'
 
   return ''
 }
@@ -151,7 +141,7 @@ function selectStep(index: number): void {
 
 function openJobSamples(): void {
   transition.value = false
-  store.step = 6
+  store.step = 5
   focusHeading()
 }
 
@@ -176,13 +166,13 @@ async function next(): Promise<void> {
 
   store.hasDraft = true
 
-  if (store.step === 5) {
+  if (store.step === 4) {
     transition.value = true
     await focusHeading()
     return
   }
 
-  if (store.step < 6) {
+  if (store.step < 5) {
     store.step += 1
     await focusHeading()
     return
@@ -230,8 +220,8 @@ function restart(): void {
     </div>
 
     <div class="stepper-mobile">
-      <span>第 {{ store.step }} / 6 步 <strong>{{ stepNames[store.step - 1] }}</strong></span>
-      <progress :value="store.step" max="6" aria-label="填写进度" />
+      <span>第 {{ store.step }} / 5 步 <strong>{{ stepNames[store.step - 1] }}</strong></span>
+      <progress :value="store.step" max="5" aria-label="填写进度" />
     </div>
 
     <section v-if="transition" class="phase-complete">
@@ -242,7 +232,6 @@ function restart(): void {
       <h1 ref="heading" tabindex="-1">基础画像已完成</h1>
       <p>接下来，选择几条招聘样本，<br />让每一项成长建议都有岗位依据。</p>
       <div class="phase-summary">
-        <span><Target :size="16" />{{ roleNames[store.profile.role] }}</span>
         <span><Clock :size="16" />每周 {{ store.profile.hours }} 小时</span>
       </div>
       <button class="button primary large" @click="openJobSamples">继续选择岗位样本 <ArrowRight :size="18" /></button>
@@ -295,29 +284,7 @@ function restart(): void {
           </div>
         </div>
 
-        <div v-if="store.step === 2" class="role-options">
-          <ChoiceCard
-            label="前端开发"
-            description="把设计与逻辑变成用户能操作的网页。关注交互、组件、页面布局与工程实践。"
-            name="role"
-            :selected="store.profile.role === 'frontend'"
-            @choose="chooseRole('frontend')"
-          />
-          <ChoiceCard
-            label="Python 后端开发"
-            description="让数据与业务服务稳定运行。关注程序设计、数据库、接口和测试。"
-            name="role"
-            :selected="store.profile.role === 'backend'"
-            @choose="chooseRole('backend')"
-          />
-
-          <div class="inline-note">
-            <Compass :size="18" />
-            <p>先选一个方向进行探索。目标改变时，可以保留共同基础，再调整专项任务。</p>
-          </div>
-        </div>
-
-        <div v-if="store.step === 3" class="wizard-fields">
+        <div v-if="store.step === 2" class="wizard-fields">
           <fieldset class="field">
             <legend>已经接触过哪些技能？<span class="optional">可多选</span></legend>
             <div class="skill-chips">
@@ -368,7 +335,7 @@ function restart(): void {
           </div>
         </div>
 
-        <div v-if="store.step === 4" class="time-step">
+        <div v-if="store.step === 3" class="time-step">
           <div class="time-display">
             <span>{{ store.profile.hours }}</span>
             <span>小时 / 周</span>
@@ -413,7 +380,7 @@ function restart(): void {
           </div>
         </div>
 
-        <div v-if="store.step === 5" class="wizard-fields">
+        <div v-if="store.step === 4" class="wizard-fields">
           <fieldset class="field">
             <legend>你目前更倾向哪条路径？</legend>
             <div class="choice-grid three">
@@ -449,10 +416,9 @@ function restart(): void {
           </fieldset>
         </div>
 
-        <div v-if="store.step === 6" class="wizard-fields">
+        <div v-if="store.step === 5" class="wizard-fields">
           <div class="profile-review">
             <span><BookOpen :size="16" />{{ store.profile.major }} · 第 {{ store.profile.semester }} 学期</span>
-            <span><Code :size="16" />{{ roleNames[store.profile.role] }}</span>
             <span><Clock :size="16" />每周 {{ store.profile.hours }} 小时</span>
             <span><Target :size="16" />{{ pathNames[store.profile.path] }}</span>
           </div>

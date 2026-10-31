@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -16,7 +16,6 @@ import SkillChart from '../components/SkillChart.vue'
 import { roleNames, skills } from '../data'
 import { analyzeJobs } from '../planning'
 import { useWorkspace } from '../store'
-import type { Role } from '../types'
 
 const store = useWorkspace()
 const router = useRouter()
@@ -41,7 +40,7 @@ const snapshot = computed(() => store.plans.find(plan => plan.id === route.query
 const contextJobs = computed(() => {
   const saved = snapshot.value
   if (!saved) return store.selectedJobs
-  return store.jobs.filter(job => saved.jobIds.includes(job.id) && job.role === saved.profile.role)
+  return store.jobs.filter(job => saved.jobIds.includes(job.id))
 })
 const contextRole = computed(() => snapshot.value?.profile.role ?? store.profile.role)
 const analysis = computed(() => analyzeJobs(contextJobs.value))
@@ -67,21 +66,8 @@ const emptyTitle = computed(() =>
 
 const samplesLabel = computed(() => (showJobs.value ? '收起样本选择' : '管理岗位样本'))
 
-watch(
-  () => store.profile.role,
-  role => {
-    store.selectedIds = store.jobs
-      .filter(job => job.role === role && job.source === 'demo')
-      .map(job => job.id)
-  },
-)
-
 function selectSkill(id: string): void {
   selectedSkillId.value = id
-}
-
-function switchRole(role: Role): void {
-  store.profile.role = role
 }
 
 function meterWidth(count: number): string {
@@ -128,11 +114,8 @@ async function generate(): Promise<void> {
     </div>
 
     <div class="workspace-toolbar">
-      <div v-if="!snapshot" class="segmented-control" aria-label="岗位方向">
-        <button :class="{ active: store.profile.role === 'frontend' }" @click="switchRole('frontend')">前端开发</button>
-        <button :class="{ active: store.profile.role === 'backend' }" @click="switchRole('backend')">Python 后端</button>
-      </div>
-      <span v-else class="tag gold-tag">{{ roleNames[contextRole] }} · 方案 V{{ snapshot.version }} 的样本</span>
+      <span v-if="snapshot" class="tag gold-tag">{{ roleNames[contextRole] }} · 方案 V{{ snapshot.version }} 的样本</span>
+      <span v-else class="tag">按选中的岗位样本分析</span>
 
       <button
         v-if="!snapshot"
@@ -152,7 +135,7 @@ async function generate(): Promise<void> {
     <section v-if="showJobs && !snapshot" class="panel mb-24">
       <div class="panel-heading">
         <h2>选择与导入岗位样本</h2>
-        <span class="tag">{{ roleNames[contextRole] }}</span>
+        <span class="tag">{{ contextJobs.length }} 条岗位样本</span>
       </div>
       <JobsPicker />
     </section>

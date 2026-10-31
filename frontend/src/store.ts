@@ -7,7 +7,7 @@ import { createPlan } from './planning'
 import type { CareerPath, Job, Plan, Profile, Role } from './types'
 
 const STORAGE_KEY = 'pathpilot-workspace'
-const STEP_COUNT = 6
+const STEP_COUNT = 5
 const MAX_WEEKLY_HOURS = 30
 const ROLES: Role[] = ['frontend', 'backend']
 const CAREER_PATHS: CareerPath[] = ['job', 'graduate', 'undecided']
@@ -77,6 +77,12 @@ function isCompletedByPlan(value: unknown): value is Record<string, string[]> {
   return isRecord(value)
 }
 
+/** 规划以「岗位与确认」选中的样本为准：方向由这些样本反推，不再单独让人选。 */
+function deriveRole(chosenJobs: Job[]): Role {
+  const backend = chosenJobs.filter(job => job.role === 'backend').length
+  return backend > chosenJobs.length / 2 ? 'backend' : 'frontend'
+}
+
 export const useWorkspace = defineStore('workspace', () => {
   const profile = ref<Profile>(clone(defaultProfile))
   const jobs = ref<Job[]>(clone(demoJobs))
@@ -103,7 +109,7 @@ export const useWorkspace = defineStore('workspace', () => {
   )
 
   const selectedJobs = computed(() =>
-    jobs.value.filter(job => selectedIds.value.includes(job.id) && job.role === profile.value.role),
+    jobs.value.filter(job => selectedIds.value.includes(job.id)),
   )
 
   const activePlan = computed(() => plans.value.find(plan => plan.id === activeId.value))
@@ -175,19 +181,20 @@ export const useWorkspace = defineStore('workspace', () => {
   async function generate(next: Profile, ids: string[]): Promise<Plan> {
     if (generating.value) throw new Error('正在生成方案，请稍候。')
 
-    const chosenJobs = jobs.value.filter(job => ids.includes(job.id) && job.role === next.role)
+    const chosenJobs = jobs.value.filter(job => ids.includes(job.id))
+    const target: Profile = { ...next, role: deriveRole(chosenJobs) }
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
     const version = latestVersion + 1
 
     generating.value = true
     try {
       const plan = remotePlanEnabled()
-        ? await requestPlan(next, chosenJobs, version)
-        : createPlan(next, chosenJobs, version)
+        ? await requestPlan(target, chosenJobs, version)
+        : createPlan(target, chosenJobs, version)
 
       plans.value.unshift(plan)
       activeId.value = plan.id
-      profile.value = clone(next)
+      profile.value = clone(target)
       selectedIds.value = [...ids]
       hasDraft.value = true
       return plan

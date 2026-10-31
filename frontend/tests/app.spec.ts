@@ -8,7 +8,6 @@ async function completeWizard(page: Page) {
   await page.getByRole('button', { name: '下一步', exact: true }).click()
   await page.getByRole('button', { name: '下一步', exact: true }).click()
   await page.getByRole('button', { name: '下一步', exact: true }).click()
-  await page.getByRole('button', { name: '下一步', exact: true }).click()
   await page.getByRole('button', { name: '继续选择岗位样本' }).click()
   await expect(page.getByRole('heading', { name: '让规划，从岗位依据开始' })).toBeVisible()
 }
@@ -70,7 +69,7 @@ test('草稿刷新后恢复；损坏的本地记录可重置', async ({ page }) 
   await page.getByLabel('你的专业').fill('软件工程')
   await page.getByRole('button', { name: '下一步', exact: true }).click()
   await page.reload()
-  await expect(page.getByRole('heading', { name: '你想靠近哪一种工作？' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '给现在的自己一个坐标' })).toBeVisible()
   await page.evaluate(() => localStorage.setItem('pathpilot-workspace', '{broken'))
   await page.reload()
   await expect(page.getByText(/上次的本地记录无法读取/)).toBeVisible()
@@ -82,7 +81,7 @@ test('键盘跳到主要内容时仍停留在当前页面', async ({ page }) => 
   await page.goto('/')
   await page.getByRole('link', { name: '跳到主要内容' }).focus()
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('heading', { name: /从目标岗位出发/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /从岗位要求出发/ })).toBeVisible()
   expect(await page.evaluate(() => document.activeElement?.id)).toBe('main')
 })
 
@@ -98,20 +97,24 @@ test('手机输入区域不会被下一步操作栏覆盖', async ({ page }) => 
   })).toBe(true)
 })
 
-test('打开旧方案的岗位依据时不会混入当前草稿的另一岗位', async ({ page }) => {
+test('向导不再单独选择目标岗位，方向由选中的岗位样本反推', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await completeWizard(page)
+  await expect(page.locator('.stepper-desktop button')).toHaveCount(5)
+
+  const frontendTitles = [
+    'Vue 前端开发工程师',
+    'Web 前端开发实习生',
+    '前端应用开发工程师',
+    '业务前端开发工程师',
+    '前端研发实习生',
+    '交互应用开发工程师',
+  ]
+  for (const title of frontendTitles) {
+    await page.getByRole('checkbox', { name: new RegExp(`^选择 ${title}`) }).uncheck()
+  }
   await page.getByRole('button', { name: '分析岗位并生成路线' }).click()
   await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
-  await page.goto('/#/analysis')
-  await page.getByRole('button', { name: 'Python 后端', exact: true }).click()
-  await page.getByRole('button', { name: '生成成长路线' }).click()
-  await page.goto('/#/history')
-  await page.locator('.history-card').last().getByRole('button', { name: '查看这份路线' }).click()
-  await page.locator('.item-details').evaluateAll(nodes =>
-    nodes.forEach(node => node.setAttribute('open', '')),
-  )
-  await page.getByRole('link', { name: '查看岗位依据' }).first().click()
-  await expect(page.locator('.skill-stat')).toContainText(['JavaScript'])
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('pathpilot-workspace')!).profile.role)).toBe('backend')
 })
 

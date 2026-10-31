@@ -2,11 +2,10 @@
 import { computed, ref } from 'vue'
 import { ArrowUpRight, Check, ChevronDown, FileText, Plus, X } from '@lucide/vue'
 import { useWorkspace } from '../store'
-import { roleNames } from '../data'
 
 const store = useWorkspace()
 
-const available = computed(() => store.jobs.filter(job => job.role === store.profile.role))
+const available = computed(() => store.jobs)
 const selectionLabel = computed(() =>
   store.selectedJobs.length === available.value.length ? '取消全选' : '选择全部',
 )
@@ -33,7 +32,7 @@ function addJob(): void {
   const id = `import-${crypto.randomUUID()}`
   store.jobs.push({
     id,
-    role: store.profile.role,
+    role: /python|后端|服务端|backend/i.test(`${title.value} ${text.value}`) ? 'backend' : 'frontend',
     title: title.value.trim() || '导入的岗位',
     company: '用户导入',
     education: '见原文',
@@ -87,7 +86,7 @@ function toggleExpanded(id: string): void {
 
     <div v-if="importing" class="import-form" role="group" aria-label="导入岗位表单">
       <div class="section-heading">
-        <h3>导入{{ roleNames[store.profile.role] }}岗位原文</h3>
+        <h3>导入岗位原文</h3>
         <button type="button" class="icon-button" aria-label="收起导入表单" @click="importing = false">
           <X :size="19" />
         </button>

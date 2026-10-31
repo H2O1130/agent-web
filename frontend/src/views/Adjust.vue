@@ -46,9 +46,7 @@ async function adjust(): Promise<void> {
 
   error.value = ''
 
-  const jobIds = nextProfile.role === base.profile.role
-    ? base.jobIds
-    : store.jobs.filter(job => job.role === nextProfile.role && job.source === 'demo').map(job => job.id)
+  const jobIds = base.jobIds
 
   try {
     result.value = await store.generate(nextProfile, jobIds)
@@ -83,14 +81,6 @@ async function applyHoursDemo(): Promise<void> {
             <h2>这次，什么改变了？</h2>
             <GitBranch :size="20" class="gold-text" />
           </div>
-
-          <label class="field">
-            目标岗位
-            <select v-model="draft.role">
-              <option value="frontend">前端开发</option>
-              <option value="backend">Python 后端开发</option>
-            </select>
-          </label>
 
           <div class="rating-field">
             <div>
