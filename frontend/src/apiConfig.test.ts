@@ -11,10 +11,10 @@ function memoryStorage(seed?: string) {
   }
 }
 
-async function loadConfig(seed?: string, env = '') {
+async function loadConfig(seed?: string, env: string | null = '') {
   const storage = memoryStorage(seed)
   vi.stubGlobal('localStorage', storage)
-  vi.stubEnv('VITE_API_BASE', env)
+  if (env !== null) vi.stubEnv('VITE_API_BASE', env)
   vi.resetModules()
   const config = await import('./apiConfig')
   return { config, storage }
@@ -26,11 +26,18 @@ afterEach(() => {
 })
 
 describe('运行时后端地址', () => {
-  it('默认没有可用地址', async () => {
+  it('显式留空构建地址时无可用地址，走本地演示', async () => {
     const { config } = await loadConfig()
 
     expect(config.hasApiBase.value).toBe(false)
     expect(config.apiBase.value).toBe('')
+  })
+
+  it('未配置构建地址时默认走同源 /backend 代理', async () => {
+    const { config } = await loadConfig(undefined, null)
+
+    expect(config.envApiBase.value).toBe('/backend')
+    expect(config.apiBase.value).toBe('/backend')
   })
 
   it('读取浏览器保存的地址并去掉结尾斜杠', async () => {
