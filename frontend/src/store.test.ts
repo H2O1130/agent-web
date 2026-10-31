@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('./api', () => ({
@@ -7,9 +7,9 @@ vi.mock('./api', () => ({
 }))
 
 import { remotePlanEnabled, requestPlan } from './api'
-import { defaultProfile } from './data'
+import { defaultProfile, demoJobs } from './data'
 import { useWorkspace } from './store'
-import type { Plan } from './types'
+import type { Job, Plan } from './types'
 import { remotePlan } from '../tests/fixtures/remote-plan'
 
 const plan: Plan = {
@@ -22,9 +22,85 @@ const plan: Plan = {
 }
 
 beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage())
   setActivePinia(createPinia())
   vi.mocked(requestPlan).mockReset()
   vi.mocked(remotePlanEnabled).mockReturnValue(true)
+})
+
+afterEach(() => vi.unstubAllGlobals())
+
+function memoryStorage(saved?: object) {
+  const values = new Map<string, string>()
+  if (saved) values.set('pathpilot-workspace', JSON.stringify(saved))
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  }
+}
+
+describe('真实岗位加载与旧记录兼容', () => {
+  it('新工作区、载入画像和重置都选择真实前端岗位', () => {
+    const store = useWorkspace()
+    expect(store.jobs.filter(job => job.source === 'collected')).toHaveLength(50)
+    expect(store.selectedIds).toHaveLength(5)
+    expect(store.selectedIds.every(id => id.startsWith('nc-'))).toBe(true)
+    store.selectedIds = []
+    store.loadDemo()
+    expect(store.selectedIds).toHaveLength(5)
+    store.reset()
+    expect(store.selectedIds).toHaveLength(5)
+  })
+
+  it('刷新时迁移演示草稿选择，旧计划的岗位编号和内容保持原样', () => {
+    const old = remotePlan(defaultProfile, demoJobs.slice(0, 1), 3)
+    vi.stubGlobal('localStorage', memoryStorage({
+      profile: defaultProfile, jobs: [], plans: [old], selectedIds: ['fe-01', 'fe-02'], activeId: old.id,
+    }))
+    const store = useWorkspace()
+    expect(store.selectedIds).toHaveLength(5)
+    expect(store.selectedIds.every(id => id.startsWith('nc-'))).toBe(true)
+    expect(store.plans[0]).toEqual(old)
+    expect(store.jobs.find(job => job.id === old.jobIds[0])?.text).toBe(demoJobs[0]!.text)
+  })
+
+  it('恢复用户导入和主动取消选择，不重复静态真实目录', () => {
+    const imported: Job = { ...demoJobs[0]!, id: 'import-owned', source: 'imported' }
+    vi.stubGlobal('localStorage', memoryStorage({ profile: defaultProfile, jobs: [imported], plans: [], selectedIds: [] }))
+    const store = useWorkspace()
+    expect(store.selectedIds).toEqual([])
+    expect(store.jobs.filter(job => job.id === imported.id)).toHaveLength(1)
+    expect(store.jobs.filter(job => job.source === 'collected')).toHaveLength(50)
+  })
+
+  it.each([
+    { role: 'frontend' as const, legacyId: 'fe-01', expectedIds: ['nc-467328', 'nc-467408', 'nc-464866', 'nc-463664', 'nc-456510'] },
+    { role: 'backend' as const, legacyId: 'be-01', expectedIds: ['nc-462212', 'nc-432841', 'nc-460588'] },
+  ])('混合草稿迁移：$role 替换旧演示样本并保留用户导入选择', ({ role, legacyId, expectedIds }) => {
+    const profile = { ...defaultProfile, role }
+    const legacy = demoJobs.find(job => job.id === legacyId)!
+    const imported: Job = { ...legacy, id: 'import-owned', source: 'imported' }
+    const historical = remotePlan(profile, [legacy], 3)
+    vi.stubGlobal('localStorage', memoryStorage({
+      profile, jobs: [imported], plans: [historical],
+      selectedIds: [legacyId, imported.id], activeId: historical.id,
+    }))
+
+    const store = useWorkspace()
+
+    expect([...store.selectedIds].sort()).toEqual([...expectedIds, imported.id].sort())
+    expect(store.selectedJobs.every(job => job.source !== 'demo')).toBe(true)
+    expect(store.jobs.find(job => job.id === imported.id)).toEqual(imported)
+    expect(store.plans).toEqual([historical])
+  })
+
+  it('不能把其他目录方向或Java岗位混入当前规划', async () => {
+    const store = useWorkspace()
+    store.profile.role = 'backend'
+    await expect(store.generate(store.profile, ['nc-469522'])).rejects.toThrow('当前规划方向')
+    expect(requestPlan).not.toHaveBeenCalled()
+  })
 })
 
 describe('store.generate', () => {

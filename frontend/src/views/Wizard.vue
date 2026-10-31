@@ -15,7 +15,7 @@ import { useRouter } from 'vue-router'
 import ChoiceCard from '../components/ChoiceCard.vue'
 import JobsPicker from '../components/JobsPicker.vue'
 import { clone } from '../clone'
-import { defaultProfile, pathNames, roleNames, scoreLabels, skills } from '../data'
+import { defaultJobIds, defaultProfile, pathNames, roleNames, scoreLabels, skills } from '../data'
 import { useWorkspace } from '../store'
 import type { Role, ScoreKey } from '../types'
 
@@ -78,9 +78,7 @@ watch(
 
 function chooseRole(role: Role): void {
   store.profile.role = role
-  store.selectedIds = store.jobs
-    .filter(job => job.role === role && job.source === 'demo')
-    .map(job => job.id)
+  store.selectedIds = defaultJobIds(role, store.jobs)
 }
 
 function toggleInterest(interest: string): void {
@@ -196,9 +194,7 @@ function restart(): void {
   if (!confirmed) return
 
   store.profile = clone(defaultProfile)
-  store.selectedIds = store.jobs
-    .filter(job => job.role === 'frontend' && job.source === 'demo')
-    .map(job => job.id)
+  store.selectedIds = defaultJobIds('frontend', store.jobs)
   store.step = 1
   transition.value = false
   error.value = ''
@@ -459,7 +455,7 @@ function restart(): void {
 
           <div class="inline-note">
             <BookOpen :size="18" />
-            <p>下面是教学演示样本，也可粘贴你收集的真实岗位原文。样本选择将直接影响统计和规划。</p>
+            <p>浏览50条真实采集岗位，也可导入招聘原文。当前支持前端开发与 Python 后端规划，其他方向可查看原文和来源。</p>
           </div>
 
           <JobsPicker />

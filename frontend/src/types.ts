@@ -1,4 +1,5 @@
 export type Role = 'frontend' | 'backend'
+export type JobRole = Role | 'product' | 'agent' | 'llm' | 'devops' | 'embedded' | 'data' | 'testing'
 export type CareerPath = 'job' | 'graduate' | 'undecided'
 export type ScoreKey = 'programming' | 'project' | 'analysis' | 'communication'
 export type PeriodKind = 'semester' | 'summer' | 'winter'
@@ -17,14 +18,23 @@ export interface Profile {
 
 export interface Job {
   id: string
-  role: Role
+  role: JobRole
   title: string
   company: string
   education: string
   text: string
-  source: 'demo' | 'imported'
+  source: 'demo' | 'imported' | 'collected'
   url: string
   collectedAt: string
+  platform?: string
+  city?: string
+  salary?: string
+  experience?: string
+  recruitmentType?: string
+  deadline?: string
+  recruitmentStatus?: string
+  responsibilities?: string
+  dataNotes?: string[]
 }
 
 export interface Evidence {

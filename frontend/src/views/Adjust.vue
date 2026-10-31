@@ -5,7 +5,7 @@ import { DEFAULT_ADJUST_MODE, createModePicker, type AdjustMode } from '../adjus
 import ChatAssistant from '../components/ChatAssistant.vue'
 import ChoiceCard from '../components/ChoiceCard.vue'
 import { clone } from '../clone'
-import { pathNames, roleNames, taskPeriod } from '../data'
+import { defaultJobIds, pathNames, roleNames, taskPeriod } from '../data'
 import { diffPlans } from '../planning'
 import { useWorkspace } from '../store'
 import type { CareerPath, Plan, Profile } from '../types'
@@ -84,7 +84,7 @@ async function adjust(): Promise<void> {
 
   const jobIds = nextProfile.role === base.profile.role
     ? base.jobIds
-    : store.jobs.filter(job => job.role === nextProfile.role && job.source === 'demo').map(job => job.id)
+    : defaultJobIds(nextProfile.role, store.jobs)
 
   try {
     // 已经通过对话换掉的模块、补充的任务要跟着走，否则改个时长就全丢

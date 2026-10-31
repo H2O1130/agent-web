@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Job, Profile } from './types'
 import { remotePlan } from '../tests/fixtures/remote-plan'
+import { realJobs } from './data'
 
 const profile: Profile = {
   major: '计算机科学与技术',
@@ -41,6 +42,35 @@ afterEach(() => {
 })
 
 describe('requestPlan', () => {
+  it('采集岗位按后端既有契约提交，前端来源和原文不被改写', async () => {
+    const selected = [realJobs.find(job => job.id === 'nc-467328')!]
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan: remotePlan(profile, selected) })))
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('/backend')
+    const extras = {
+      customTasks: [{ id: 'custom-practice', title: '补充项目实践', action: '完成项目', done: '提交成果' }],
+      dropModules: ['git'],
+    }
+    await api.requestPlan(profile, selected, 1, extras)
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+    expect(body.customTasks).toEqual(extras.customTasks)
+    expect(body.dropModules).toEqual(extras.dropModules)
+    expect(body.jobs[0]).toEqual({
+      id: selected[0]!.id, role: 'frontend', title: selected[0]!.title,
+      company: selected[0]!.company, education: selected[0]!.education, text: selected[0]!.text,
+      source: 'imported', url: selected[0]!.url, collectedAt: selected[0]!.collectedAt,
+    })
+    expect(selected[0]!.source).toBe('collected')
+  })
+
+  it('API也拒绝将Java/C#岗位作为Python后端规划样本', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('/backend')
+    await expect(api.requestPlan({ ...profile, role: 'backend' }, [realJobs.find(job => job.id === 'nc-469522')!], 1)).rejects.toThrow('当前规划方向')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('未设置地址时默认连接同源后端代理', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan: remotePlan(profile, jobs) })))
     vi.stubGlobal('fetch', fetchMock)

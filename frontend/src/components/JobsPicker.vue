@@ -2,13 +2,23 @@
 import { computed, ref } from 'vue'
 import { ArrowUpRight, Check, ChevronDown, FileText, Plus, X } from '@lucide/vue'
 import { useWorkspace } from '../store'
-import { roleNames } from '../data'
+import { canPlanJob, jobRoleNames, roleNames } from '../data'
+import type { Job, JobRole } from '../types'
 
 const store = useWorkspace()
 
-const available = computed(() => store.jobs.filter(job => job.role === store.profile.role))
+const category = ref<JobRole | 'all'>('all')
+const categories = Object.entries(jobRoleNames) as [JobRole, string][]
+const catalogJobs = computed(() => store.jobs.filter(job =>
+  job.source === 'collected' || job.source === 'imported' || isLegacySelection(job),
+))
+const available = computed(() => catalogJobs.value.filter(job => category.value === 'all' || job.role === category.value))
+const selectable = computed(() => available.value.filter(job => canPlanJob(job, store.profile.role)))
+const allSelected = computed(() =>
+  selectable.value.length > 0 && selectable.value.every(job => store.selectedIds.includes(job.id)),
+)
 const selectionLabel = computed(() =>
-  store.selectedJobs.length === available.value.length ? '取消全选' : '选择全部',
+  allSelected.value ? '取消全选' : '选择全部',
 )
 
 const expanded = ref('')
@@ -43,6 +53,7 @@ function addJob(): void {
     collectedAt: date.value,
   })
   store.selectedIds.push(id)
+  category.value = 'all'
   resetForm()
 }
 
@@ -56,15 +67,56 @@ function resetForm(): void {
 }
 
 function selectAll(): void {
-  const ids = available.value.map(job => job.id)
-  const allSelected = store.selectedJobs.length === ids.length
+  const ids = selectable.value.map(job => job.id)
+  if (!ids.length) return
 
-  if (allSelected) {
+  if (allSelected.value) {
     store.selectedIds = store.selectedIds.filter(id => !ids.includes(id))
     return
   }
 
   store.selectedIds = [...new Set([...store.selectedIds, ...ids])]
+}
+
+function isSelected(job: Job): boolean {
+  return isLegacySelection(job) || (canPlanJob(job, store.profile.role) && store.selectedIds.includes(job.id))
+}
+
+function isLegacySelection(job: Job): boolean {
+  return job.source === 'demo' && store.selectedIds.includes(job.id)
+}
+
+function toggleSelection(job: Job, event: Event): void {
+  const input = event.target as HTMLInputElement
+  if (job.source === 'demo') {
+    store.selectedIds = store.selectedIds.filter(id => id !== job.id)
+    input.checked = false
+    return
+  }
+  if (!canPlanJob(job, store.profile.role)) {
+    input.checked = false
+    return
+  }
+  store.selectedIds = input.checked
+    ? [...new Set([...store.selectedIds, job.id])]
+    : store.selectedIds.filter(id => id !== job.id)
+}
+
+function browsingReason(job: Job): string {
+  if (job.source === 'demo') return ''
+  if (canPlanJob(job, store.profile.role)) return ''
+  if (job.role === 'backend' && !canPlanJob(job, 'backend')) {
+    return '仅供浏览：该岗位未明确接受 Python，不适用于现有 Python 后端规划。'
+  }
+  if (job.role === 'frontend' || job.role === 'backend') {
+    return `仅供浏览：与当前${roleNames[store.profile.role]}规划目标不同。`
+  }
+  return `仅供浏览：暂不支持${jobRoleNames[job.role]}方向的规划。`
+}
+
+function acceptsMultipleLanguages(job: Job): boolean {
+  return job.source === 'collected' && job.role === 'backend' &&
+    canPlanJob(job, 'backend') && !/python/i.test(job.title)
 }
 
 function toggleExpanded(id: string): void {
@@ -74,11 +126,23 @@ function toggleExpanded(id: string): void {
 
 <template>
   <div class="jobs-picker">
+    <label class="field catalog-filter">
+      岗位分类
+      <select v-model="category" aria-label="岗位分类">
+        <option value="all">全部分类</option>
+        <option v-for="[key, name] in categories" :key="key" :value="key">{{ name }}</option>
+      </select>
+    </label>
+
     <div class="picker-toolbar">
-      <span><strong>{{ store.selectedJobs.length }}</strong> / {{ available.length }} 条样本已选择</span>
+      <span class="catalog-counts" aria-live="polite">
+        <span>岗位总数 <strong>{{ catalogJobs.length }}</strong> 条</span>
+        <span>当前显示 <strong>{{ available.length }}</strong> 条</span>
+        <span>当前规划选中 <strong>{{ store.selectedJobs.length }}</strong> 条</span>
+      </span>
 
       <div>
-        <button type="button" class="text-button" @click="selectAll">{{ selectionLabel }}</button>
+        <button type="button" class="text-button" :disabled="!selectable.length" @click="selectAll">{{ selectionLabel }}</button>
         <button type="button" class="button small secondary" @click="importing = !importing">
           <Plus :size="15" />导入岗位
         </button>
@@ -114,30 +178,43 @@ function toggleExpanded(id: string): void {
         v-for="job in available"
         :key="job.id"
         class="job-card"
-        :class="{ 'is-selected': store.selectedIds.includes(job.id) }"
+        :class="{ 'is-selected': isSelected(job) }"
       >
         <div class="job-card-top">
           <label class="job-select">
             <input
-              v-model="store.selectedIds"
               type="checkbox"
               :value="job.id"
+              :checked="isSelected(job)"
+              :disabled="!canPlanJob(job, store.profile.role) && !isLegacySelection(job)"
               :aria-label="`选择 ${job.title} ${job.company}`"
+              :aria-describedby="browsingReason(job) ? `job-availability-${job.id}` : undefined"
+              @change="toggleSelection(job, $event)"
             />
             <span class="job-check">
-              <Check v-if="store.selectedIds.includes(job.id)" :size="14" />
+              <Check v-if="isSelected(job)" :size="14" />
             </span>
             <span>
               <strong>{{ job.title }}</strong>
-              <span class="job-meta">{{ job.company }} <span>·</span> {{ job.education }}</span>
+              <span class="job-meta">{{ jobRoleNames[job.role] }} <span>·</span> {{ job.company }} <span>·</span> {{ job.education }}</span>
             </span>
           </label>
 
           <span
             class="tag"
             :class="{ 'gold-tag': job.source === 'imported' }"
-          >{{ job.source === 'demo' ? '演示样本' : '用户导入，待核验' }}</span>
+          >{{ job.source === 'collected' ? `真实采集 · ${job.platform || '牛客'}` : job.source === 'demo' ? '历史演示样本' : '用户导入，待核验' }}</span>
         </div>
+
+        <p v-if="job.source === 'demo'" class="job-planning-note">
+          保留旧计划的演示样本，取消选择后不再显示。
+        </p>
+        <p v-if="acceptsMultipleLanguages(job)" class="job-planning-note">
+          接受 Python，多语言岗位；原文允许从多种语言中选择。
+        </p>
+        <p v-if="browsingReason(job)" :id="`job-availability-${job.id}`" class="job-planning-note">
+          {{ browsingReason(job) }}
+        </p>
 
         <button
           type="button"
@@ -150,14 +227,113 @@ function toggleExpanded(id: string): void {
         </button>
 
         <div v-if="expanded === job.id" class="job-original">
-          <p>{{ job.text }}</p>
+          <p class="job-requirements">{{ job.text }}</p>
+          <dl class="job-facts">
+            <div v-if="job.city"><dt>城市</dt><dd>{{ job.city }}</dd></div>
+            <div v-if="job.salary"><dt>薪资</dt><dd>{{ job.salary }}</dd></div>
+            <div v-if="job.experience"><dt>经验</dt><dd>{{ job.experience }}</dd></div>
+            <div v-if="job.recruitmentType"><dt>招聘类型</dt><dd>{{ job.recruitmentType }}</dd></div>
+            <div v-if="job.deadline"><dt>原页截止日期</dt><dd>{{ job.deadline }}</dd></div>
+            <div v-if="job.recruitmentStatus"><dt>采集时状态</dt><dd>{{ job.recruitmentStatus }}</dd></div>
+          </dl>
+          <div v-if="job.responsibilities" class="job-summary">
+            <strong>职责摘要 · 采集者概述，非原文证据</strong>
+            <p>{{ job.responsibilities }}</p>
+          </div>
           <a v-if="job.url" :href="job.url" target="_blank" rel="noopener noreferrer">
-            查看用户提供的来源 <ArrowUpRight :size="14" />
+            {{ job.source === 'collected' ? `查看${job.platform || '牛客'}招聘原页` : job.source === 'demo' ? '查看历史样本来源' : '查看用户提供的来源' }} <ArrowUpRight :size="14" />
           </a>
           <p v-if="job.collectedAt" class="small-label">采集日期：{{ job.collectedAt }}</p>
-          <p v-if="job.source === 'demo'" class="small-label">教学演示样本，无真实企业来源与采集日期。</p>
+          <p v-if="job.source === 'demo'" class="small-label">教学演示数据，用于核对旧方案，不代表真实企业招聘。</p>
+          <div v-if="job.dataNotes?.length" class="job-data-notes">
+            <strong>采集备注</strong>
+            <ul><li v-for="(note, index) in job.dataNotes" :key="index">{{ note }}</li></ul>
+          </div>
         </div>
       </article>
     </div>
   </div>
 </template>
+
+<style scoped>
+.catalog-filter {
+  max-width: 320px;
+  margin-bottom: 16px;
+}
+
+.catalog-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  line-height: 1.8;
+}
+
+.picker-toolbar,
+.picker-toolbar > div {
+  flex-wrap: wrap;
+}
+
+.job-select > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.job-select:has(input:disabled) {
+  cursor: default;
+}
+
+.job-select input:disabled + .job-check {
+  background: var(--surface-alt, #f5f3ed);
+  border-color: var(--border);
+}
+
+.job-planning-note {
+  margin: 10px 0 0 26px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.job-requirements {
+  white-space: pre-wrap;
+}
+
+.job-facts {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.job-facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.job-facts dt {
+  min-width: 84px;
+}
+
+.job-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.job-summary,
+.job-data-notes {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.job-data-notes ul {
+  padding-left: 18px;
+  margin: 6px 0 0;
+}
+</style>

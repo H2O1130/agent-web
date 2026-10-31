@@ -1,4 +1,6 @@
 import { apiBase, normalizeBase } from './apiConfig'
+import { clone } from './clone'
+import { canPlanJob } from './data'
 import { llmHeaders, type LlmSettings } from './llm'
 import type { ChatMessage, ChatReply, CustomTask, Job, Plan, Profile } from './types'
 
@@ -28,6 +30,19 @@ export async function requestPlan(
 ): Promise<Plan> {
   if (!remotePlanEnabled()) throw new Error('当前为本地演示，未启用后端连接。')
 
+  const snapshot = clone(profile)
+  const selected = clone(jobs)
+  if (selected.some(job => !canPlanJob(job, snapshot.role))) {
+    throw new Error('所选岗位不适用于当前规划方向，请重新选择岗位。')
+  }
+  // 采集原文沿用后端 imported 契约，前端目录保留真实来源标记。
+  const payloadJobs = selected.map(job => ({
+    id: job.id, role: job.role, title: job.title, company: job.company,
+    education: job.education, text: job.text,
+    source: job.source === 'collected' ? 'imported' : job.source,
+    url: job.url, collectedAt: job.collectedAt,
+  }))
+
   let response: Response
 
   try {
@@ -35,8 +50,8 @@ export async function requestPlan(
       method: 'POST',
       headers: jsonHeaders(),
       body: JSON.stringify({
-        profile,
-        jobs,
+        profile: snapshot,
+        jobs: payloadJobs,
         version,
         customTasks: extras.customTasks ?? [],
         dropModules: extras.dropModules ?? [],

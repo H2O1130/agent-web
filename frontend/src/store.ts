@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { remotePlanEnabled, requestPlan, type PlanExtras } from './api'
 import { clone } from './clone'
-import { defaultProfile, demoJobs } from './data'
+import { canPlanJob, defaultJobIds, defaultProfile, demoJobs, presetJobs } from './data'
 import { createPlan } from './planning'
 import type { CareerPath, Job, Plan, Profile, Role } from './types'
 
@@ -79,8 +79,8 @@ function isCompletedByPlan(value: unknown): value is Record<string, string[]> {
 
 export const useWorkspace = defineStore('workspace', () => {
   const profile = ref<Profile>(clone(defaultProfile))
-  const jobs = ref<Job[]>(clone(demoJobs))
-  const selectedIds = ref<string[]>(demoJobs.filter(job => job.role === 'frontend').map(job => job.id))
+  const jobs = ref<Job[]>(clone(presetJobs))
+  const selectedIds = ref<string[]>(defaultJobIds('frontend'))
   const plans = ref<Plan[]>([])
   const activeId = ref('')
   const step = ref(1)
@@ -104,7 +104,7 @@ export const useWorkspace = defineStore('workspace', () => {
   )
 
   const selectedJobs = computed(() =>
-    jobs.value.filter(job => selectedIds.value.includes(job.id) && job.role === profile.value.role),
+    jobs.value.filter(job => selectedIds.value.includes(job.id) && canPlanJob(job, profile.value.role)),
   )
 
   const activePlan = computed(() => plans.value.find(plan => plan.id === activeId.value))
@@ -125,8 +125,12 @@ export const useWorkspace = defineStore('workspace', () => {
     )
 
     profile.value = saved.profile
-    jobs.value = [...clone(demoJobs), ...imported]
-    selectedIds.value = (saved.selectedIds ?? []).filter(id => typeof id === 'string')
+    jobs.value = [...clone(presetJobs), ...imported]
+    const restoredIds = (saved.selectedIds ?? []).filter(id => typeof id === 'string')
+    const legacyIds = new Set(demoJobs.map(job => job.id))
+    selectedIds.value = restoredIds.some(id => legacyIds.has(id))
+      ? [...new Set([...defaultJobIds(saved.profile.role), ...restoredIds.filter(id => !legacyIds.has(id))])]
+      : restoredIds
     plans.value = saved.plans ?? []
     activeId.value = typeof saved.activeId === 'string' ? saved.activeId : ''
     step.value = Number.isInteger(saved.step)
@@ -166,9 +170,7 @@ export const useWorkspace = defineStore('workspace', () => {
     }
 
     profile.value = clone(demoProfile)
-    selectedIds.value = jobs.value
-      .filter(job => job.role === 'frontend' && job.source === 'demo')
-      .map(job => job.id)
+    selectedIds.value = defaultJobIds('frontend', jobs.value)
     hasDraft.value = true
     step.value = 1
   }
@@ -178,7 +180,10 @@ export const useWorkspace = defineStore('workspace', () => {
 
     const snapshot = clone(next)
     const selected = [...ids]
-    const chosenJobs = clone(jobs.value.filter(job => selected.includes(job.id) && job.role === snapshot.role))
+    if (selected.some(id => !jobs.value.some(job => job.id === id && canPlanJob(job, snapshot.role)))) {
+      throw new Error('所选岗位不适用于当前规划方向，请重新选择岗位。')
+    }
+    const chosenJobs = clone(jobs.value.filter(job => selected.includes(job.id) && canPlanJob(job, snapshot.role)))
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
     const version = latestVersion + 1
     const revision = workspaceRevision
@@ -219,8 +224,8 @@ export const useWorkspace = defineStore('workspace', () => {
   function reset(): void {
     workspaceRevision += 1
     profile.value = clone(defaultProfile)
-    jobs.value = clone(demoJobs)
-    selectedIds.value = demoJobs.filter(job => job.role === 'frontend').map(job => job.id)
+    jobs.value = clone(presetJobs)
+    selectedIds.value = defaultJobIds('frontend')
     plans.value = []
     activeId.value = ''
     completed.value = {}
