@@ -16,6 +16,7 @@ import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
 import { roleNames, skills } from '../data'
 import { analyzeJobs } from '../planning'
+import { remotePlanEnabled } from '../api'
 import { useWorkspace } from '../store'
 import type { Role } from '../types'
 
@@ -119,7 +120,7 @@ async function generate(): Promise<void> {
       <div>
         <span class="eyebrow">让方向有据可循</span>
         <h1>读懂岗位，再决定学什么<span class="heading-dot">.</span></h1>
-        <p>把招聘原文中的能力要求，连接到课程与实践成果。</p>
+        <p>本地预览岗位要求与课程示例；生成路线时使用{{ remotePlanEnabled() ? '后端规划' : '本地演示规则' }}。</p>
       </div>
 
       <button v-if="!snapshot" class="button primary" :disabled="store.generating" @click="generate">
@@ -190,7 +191,7 @@ async function generate(): Promise<void> {
               <span class="eyebrow">从原文提取</span>
               <h2>岗位能力清单</h2>
             </div>
-            <span class="tag">当前样本统计</span>
+            <span class="tag">本地规则预览</span>
           </div>
 
           <div class="tab-bar" role="tablist" aria-label="要求分类">

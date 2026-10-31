@@ -221,7 +221,7 @@ function forget(): void {
               autocomplete="off"
             />
             <small class="field-hint">
-              本地开发填 {{ DEFAULT_API_BASE }}。留空则生成方案走本地规则，AI 对话不可用。
+              留空则使用构建配置的地址（{{ envApiBase || '未配置，走本地规则' }}）。需要连别的后端时可填完整地址，例如 {{ DEFAULT_API_BASE }}。
               <template v-if="envApiBase">
                 <br />当前构建配置里的地址是 {{ envApiBase }}。
               </template>

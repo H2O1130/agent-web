@@ -88,6 +88,7 @@ export const useWorkspace = defineStore('workspace', () => {
   const completed = ref<Record<string, string[]>>({})
   const storageWarning = ref('')
   const generating = ref(false)
+  let workspaceRevision = 0
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -175,9 +176,14 @@ export const useWorkspace = defineStore('workspace', () => {
   async function generate(next: Profile, ids: string[], extras: PlanExtras = {}): Promise<Plan> {
     if (generating.value) throw new Error('正在生成方案，请稍候。')
 
-    const chosenJobs = jobs.value.filter(job => ids.includes(job.id) && job.role === next.role)
+    const snapshot = clone(next)
+    const selected = [...ids]
+    const chosenJobs = clone(jobs.value.filter(job => selected.includes(job.id) && job.role === snapshot.role))
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
     const version = latestVersion + 1
+    const revision = workspaceRevision
+    const previousDraft = JSON.stringify(profile.value)
+    const previousSelection = JSON.stringify(selectedIds.value)
 
     // 自定义任务/被替换的模块跟着方案走，否则下次重新生成就丢了
     const customTasks = extras.customTasks ?? []
@@ -187,16 +193,22 @@ export const useWorkspace = defineStore('workspace', () => {
     generating.value = true
     try {
       const built = remotePlanEnabled()
-        ? await requestPlan(next, chosenJobs, version, { customTasks, dropModules })
-        : createPlan(next, chosenJobs, version)
+        ? await requestPlan(snapshot, chosenJobs, version, { customTasks, dropModules })
+        : createPlan(snapshot, chosenJobs, version)
+
+      if (revision !== workspaceRevision) throw new Error('工作区已重置，已忽略这次生成结果。')
+
       const plan: Plan = hasExtras
         ? { ...built, customTasks: [...customTasks], dropModules: [...dropModules] }
         : built
 
       plans.value.unshift(plan)
       activeId.value = plan.id
-      profile.value = clone(next)
-      selectedIds.value = [...ids]
+      // 等待期间的草稿编辑保留下来，旧请求仅保存其自己的方案快照。
+      if (JSON.stringify(profile.value) === previousDraft && JSON.stringify(selectedIds.value) === previousSelection) {
+        profile.value = snapshot
+        selectedIds.value = selected
+      }
       hasDraft.value = true
       return plan
     } finally {
@@ -205,6 +217,7 @@ export const useWorkspace = defineStore('workspace', () => {
   }
 
   function reset(): void {
+    workspaceRevision += 1
     profile.value = clone(defaultProfile)
     jobs.value = clone(demoJobs)
     selectedIds.value = demoJobs.filter(job => job.role === 'frontend').map(job => job.id)

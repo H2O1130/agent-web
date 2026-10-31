@@ -139,7 +139,7 @@ test('模型设置：保存密钥后页头显示已接入模型', async ({ page 
   await expect(page.locator('.demo-badge')).toHaveText('演示模式')
 
   await page.getByRole('button', { name: '模型设置' }).click()
-  const dialog = page.getByRole('dialog', { name: '模型设置' })
+  const dialog = page.getByRole('dialog', { name: '接入 AI' })
   await expect(dialog).toBeVisible()
 
   await dialog.getByLabel('密钥', { exact: true }).fill('sk-e2e-test')
@@ -164,7 +164,7 @@ test('模型设置：Esc 关闭并清除密钥', async ({ page }) => {
   )
   await page.reload()
   await page.getByRole('button', { name: '模型设置' }).click()
-  const dialog = page.getByRole('dialog', { name: '模型设置' })
+  const dialog = page.getByRole('dialog', { name: '接入 AI' })
 
   await expect(dialog.getByLabel('密钥', { exact: true })).toHaveValue('sk-old')
   await dialog.getByRole('button', { name: '清除' }).click()

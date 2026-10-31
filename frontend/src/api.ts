@@ -26,6 +26,8 @@ export async function requestPlan(
   version: number,
   extras: PlanExtras = {},
 ): Promise<Plan> {
+  if (!remotePlanEnabled()) throw new Error('当前为本地演示，未启用后端连接。')
+
   let response: Response
 
   try {

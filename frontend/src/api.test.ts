@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Job, Profile } from './types'
+import { remotePlan } from '../tests/fixtures/remote-plan'
 
 const profile: Profile = {
   major: '计算机科学与技术',
@@ -27,18 +28,29 @@ const jobs: Job[] = [
   },
 ]
 
-async function loadApi(base: string) {
+async function loadApi(base: string | undefined) {
   vi.resetModules()
   vi.stubEnv('VITE_API_BASE', base)
   return import('./api')
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
 
 describe('requestPlan', () => {
+  it('未设置地址时默认连接同源后端代理', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan: remotePlan(profile, jobs) })))
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi(undefined)
+
+    expect(api.remotePlanEnabled()).toBe(true)
+    await api.requestPlan(profile, jobs, 1)
+    expect(fetchMock.mock.calls[0]![0]).toBe('/backend/api/plan')
+  })
+
   it('未配置地址时使用本地规则', async () => {
     const api = await loadApi('')
     expect(api.remotePlanEnabled()).toBe(false)
@@ -46,7 +58,7 @@ describe('requestPlan', () => {
 
   it('配置地址后提交画像、样本与版本号', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ plan: { id: 'p1', tasks: [] } }), { status: 200 }),
+      new Response(JSON.stringify({ plan: remotePlan(profile, jobs, 2) }), { status: 200 }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('http://127.0.0.1:8000/')
@@ -54,7 +66,7 @@ describe('requestPlan', () => {
     const plan = await api.requestPlan(profile, jobs, 2)
 
     expect(api.remotePlanEnabled()).toBe(true)
-    expect(plan.id).toBe('p1')
+    expect(plan.id).toBe('remote-plan-2')
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/plan',
       expect.objectContaining({ method: 'POST' }),
@@ -126,9 +138,31 @@ describe('requestPlan', () => {
 
     await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('数据格式不正确')
   })
+
+  it('非JSON错误页面也给出可读提示', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 })))
+    const api = await loadApi('/backend')
+    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('服务')
+  })
+
+  it('本地演示模式不向错误地址发送规划请求', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('')
+    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('本地演示')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('模型密钥', () => {
+  it('服务端配置密钥时允许空浏览器密钥验证', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, model: 'server-model' })))
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('/backend')
+    expect(await api.verifyLlmKey({ key: '', model: '' })).toBe('server-model')
+    expect(fetchMock.mock.calls[0]![1].headers).not.toHaveProperty('X-DeepSeek-Key')
+  })
+
   it('已保存密钥时随规划请求发送请求头', async () => {
     vi.stubGlobal('localStorage', {
       getItem: () => JSON.stringify({ key: 'sk-browser', model: 'deepseek-chat' }),
@@ -136,7 +170,7 @@ describe('模型密钥', () => {
       removeItem: () => {},
     })
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ plan: { id: 'p1', tasks: [] } }), { status: 200 }),
+      new Response(JSON.stringify({ plan: remotePlan(profile, jobs, 1) }), { status: 200 }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('http://127.0.0.1:8000')
