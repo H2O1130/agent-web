@@ -1,7 +1,35 @@
 import jobData from './data/jobs.json'
-import type { CareerPath, Job, Profile, Role, ScoreKey } from './types'
+import realJobData from './data/jobs.real.json'
+import type { CareerPath, Job, JobRole, Profile, Role, ScoreKey } from './types'
 
 export const demoJobs = jobData as Job[]
+export const realJobs = realJobData as Job[]
+// 旧岗位编号仍用于查看历史方案的依据，新方案默认使用真实采集数据。
+export const presetJobs = [...realJobs, ...demoJobs]
+
+export const jobRoleNames: Record<JobRole, string> = {
+  frontend: '前端开发',
+  backend: '后端开发',
+  product: '产品经理',
+  agent: 'Agent 开发',
+  llm: '大模型',
+  devops: '运维 / DevOps',
+  embedded: '嵌入式开发',
+  data: '数据开发 / 分析',
+  testing: '软件测试',
+}
+
+// 已逐条核对原文，另外两条后端岗位只接受 Java/C#，不适用于现有 Python 规划。
+const pythonJobIds = new Set(['nc-462212', 'nc-432841', 'nc-460588'])
+
+export function canPlanJob(job: Job, role: Role): boolean {
+  if (job.role !== role) return false
+  return job.source !== 'collected' || role !== 'backend' || pythonJobIds.has(job.id)
+}
+
+export function defaultJobIds(role: Role, jobs: readonly Job[] = realJobs): string[] {
+  return jobs.filter(job => job.source === 'collected' && canPlanJob(job, role)).map(job => job.id)
+}
 
 export const roleNames: Record<Role, string> = {
   frontend: '前端开发',

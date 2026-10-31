@@ -14,7 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import JobsPicker from '../components/JobsPicker.vue'
 import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
-import { roleNames, skills } from '../data'
+import { defaultJobIds, realJobs, roleNames, skills } from '../data'
 import { analyzeJobs } from '../planning'
 import { remotePlanEnabled } from '../api'
 import { useWorkspace } from '../store'
@@ -67,14 +67,13 @@ const emptyTitle = computed(() =>
   contextJobs.value.length ? '暂未识别到支持的技能' : '先选择一些岗位样本',
 )
 
-const samplesLabel = computed(() => (showJobs.value ? '收起样本选择' : '管理岗位样本'))
+const samplesLabel = computed(() => (showJobs.value ? '收起岗位库' : '浏览岗位库'))
+const catalogCount = computed(() => store.jobs.filter(job => job.source !== 'demo').length)
 
 watch(
   () => store.profile.role,
   role => {
-    store.selectedIds = store.jobs
-      .filter(job => job.role === role && job.source === 'demo')
-      .map(job => job.id)
+    store.selectedIds = defaultJobIds(role, store.jobs)
   },
 )
 
@@ -142,7 +141,7 @@ async function generate(): Promise<void> {
         :aria-expanded="showJobs"
         @click="showJobs = !showJobs"
       >
-        <FileText :size="15" />{{ samplesLabel }}<span class="count-bubble">{{ contextJobs.length }}</span>
+        <FileText :size="15" />{{ samplesLabel }}<span class="count-bubble">{{ catalogCount }}</span>
       </button>
     </div>
 
@@ -179,7 +178,7 @@ async function generate(): Promise<void> {
     <div v-if="!analysis.length" class="empty-state panel">
       <FileText :size="36" />
       <h2>{{ emptyTitle }}</h2>
-      <p>本地规则覆盖常见开发技能。可选择演示样本，或补充更具体的招聘要求。</p>
+      <p>本地规则覆盖常见开发技能。可选择真实岗位，或补充更具体的招聘要求。</p>
       <button class="button secondary" @click="showJobs = true">选择或导入样本</button>
     </div>
 
@@ -247,7 +246,7 @@ async function generate(): Promise<void> {
 
           <div class="inline-note compact">
             <FileText :size="16" />
-            <p>演示样本不代表实时市场需求。导入真实资料后，请保留来源并人工核验。</p>
+            <p>岗位库含{{ realJobs.length }}条牛客岗位，采集于2026-10-29。统计仅基于当前选中岗位，不代表全行业需求。</p>
           </div>
         </aside>
       </div>

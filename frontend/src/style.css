@@ -4082,7 +4082,7 @@ progress::-moz-progress-bar {
   }
 
   .brand-english {
-    font-size: 14px;
+    display: none;
   }
 
   .demo-badge {
