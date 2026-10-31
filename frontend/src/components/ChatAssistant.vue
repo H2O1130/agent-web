@@ -104,7 +104,7 @@ const proposalChanges = computed(() => proposalAdds.value.length > 0 || proposal
 
 const showPrompts = computed(
   () =>
-    props.variant === 'hero' &&
+    props.variant !== 'panel' &&
     props.prompts.length > 0 &&
     proposal.value === null &&
     !messages.value.some(message => message.role === 'user'),
@@ -196,7 +196,7 @@ defineExpose({ focusInput })
 
 <template>
   <section class="chat-panel" :class="`chat-panel--${variant}`">
-    <header v-if="variant === 'hero'" class="chat-hero-head">
+    <header v-if="variant !== 'panel'" class="chat-hero-head">
       <span class="chat-avatar" aria-hidden="true"><Sparkles :size="19" /></span>
       <div class="chat-hero-text">
         <div class="chat-hero-title">
@@ -215,7 +215,7 @@ defineExpose({ focusInput })
       <span class="tag">AI 讨论</span>
     </div>
 
-    <div v-if="variant === 'hero'" class="chat-facts">
+    <div v-if="variant !== 'panel'" class="chat-facts">
       <span><Clock :size="14" />每周 {{ plan.profile.hours }} 小时</span>
       <span><CalendarDays :size="14" />{{ periodCount }} 个学期</span>
       <span><Target :size="14" />{{ taskCount }} 项行动</span>
