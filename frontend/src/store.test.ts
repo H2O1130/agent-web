@@ -97,9 +97,30 @@ describe('真实岗位加载与旧记录兼容', () => {
 
   it('不能把其他目录方向或Java岗位混入当前规划', async () => {
     const store = useWorkspace()
-    store.profile.role = 'backend'
-    await expect(store.generate(store.profile, ['nc-469522'])).rejects.toThrow('当前规划方向')
+    await expect(store.generate(store.profile, ['nc-469522'])).rejects.toThrow('没有对应的规划模板')
     expect(requestPlan).not.toHaveBeenCalled()
+  })
+
+  it('选中的样本以其他方向为主时提示暂无路线模板', async () => {
+    const store = useWorkspace()
+    const productIds = store.jobs.filter(job => job.role === 'product').map(job => job.id)
+    expect(productIds.length).toBeGreaterThan(0)
+
+    await expect(store.generate(store.profile, productIds)).rejects.toThrow('暂时还没有路线模板')
+    expect(requestPlan).not.toHaveBeenCalled()
+  })
+
+  it('混选时按占多数的方向反推，少数方向只作分析样本', async () => {
+    vi.mocked(requestPlan).mockResolvedValue(plan)
+    const store = useWorkspace()
+    const productId = store.jobs.find(job => job.role === 'product')!.id
+
+    await store.generate(store.profile, [...store.selectedIds, productId])
+
+    const [requestedProfile, requestedIds] = vi.mocked(requestPlan).mock.calls[0]!
+    expect(requestedProfile.role).toBe('frontend')
+    expect(requestedIds).not.toContain(productId)
+    expect(requestedIds).toHaveLength(store.selectedIds.length)
   })
 })
 

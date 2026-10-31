@@ -27,6 +27,16 @@ export function canPlanJob(job: Job, role: Role): boolean {
   return job.source !== 'collected' || role !== 'backend' || pythonJobIds.has(job.id)
 }
 
+/** 现有规划引擎只有前端 / Python 后端两套模板，其余方向暂时只能作分析样本。 */
+export function hasPlanTemplate(role: JobRole): role is Role {
+  return role === 'frontend' || role === 'backend'
+}
+
+/** 岗位本身是否落在现有规划方向内（前端 / Python 后端），与具体方案方向无关。 */
+export function isPlannableJob(job: Job): boolean {
+  return hasPlanTemplate(job.role) && canPlanJob(job, job.role)
+}
+
 export function defaultJobIds(role: Role, jobs: readonly Job[] = realJobs): string[] {
   return jobs.filter(job => job.source === 'collected' && canPlanJob(job, role)).map(job => job.id)
 }

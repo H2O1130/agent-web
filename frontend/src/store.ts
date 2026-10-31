@@ -2,12 +2,12 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { remotePlanEnabled, requestPlan, type PlanExtras } from './api'
 import { clone } from './clone'
-import { canPlanJob, defaultJobIds, defaultProfile, demoJobs, presetJobs } from './data'
+import { canPlanJob, defaultJobIds, defaultProfile, demoJobs, hasPlanTemplate, jobRoleNames, presetJobs } from './data'
 import { createPlan } from './planning'
-import type { CareerPath, Job, Plan, Profile, Role } from './types'
+import type { CareerPath, Job, JobRole, Plan, Profile, Role } from './types'
 
 const STORAGE_KEY = 'pathpilot-workspace'
-const STEP_COUNT = 6
+const STEP_COUNT = 5
 const MAX_WEEKLY_HOURS = 30
 const ROLES: Role[] = ['frontend', 'backend']
 const CAREER_PATHS: CareerPath[] = ['job', 'graduate', 'undecided']
@@ -77,6 +77,29 @@ function isCompletedByPlan(value: unknown): value is Record<string, string[]> {
   return isRecord(value)
 }
 
+/** 规划以「岗位与确认」选中的样本为准：方向取样本里占比最大的那一类，不再单独让人选。 */
+function deriveRole(chosenJobs: Job[]): JobRole {
+  const counts = new Map<JobRole, number>()
+  for (const job of chosenJobs) counts.set(job.role, (counts.get(job.role) ?? 0) + 1)
+
+  let best: JobRole = chosenJobs[0]!.role
+  let bestCount = 0
+  for (const [role, count] of counts) {
+    if (count > bestCount) {
+      best = role
+      bestCount = count
+    }
+  }
+
+  return best
+}
+
+const NO_PLANNABLE_JOB = '所选岗位暂时没有对应的规划模板，请换一批岗位样本。'
+
+function noTemplateMessage(role: JobRole): string {
+  return `所选样本主要落在${jobRoleNames[role]}方向，这个方向暂时还没有路线模板，请换一批岗位样本。`
+}
+
 export const useWorkspace = defineStore('workspace', () => {
   const profile = ref<Profile>(clone(defaultProfile))
   const jobs = ref<Job[]>(clone(presetJobs))
@@ -104,7 +127,7 @@ export const useWorkspace = defineStore('workspace', () => {
   )
 
   const selectedJobs = computed(() =>
-    jobs.value.filter(job => selectedIds.value.includes(job.id) && canPlanJob(job, profile.value.role)),
+    jobs.value.filter(job => selectedIds.value.includes(job.id)),
   )
 
   const activePlan = computed(() => plans.value.find(plan => plan.id === activeId.value))
@@ -178,12 +201,19 @@ export const useWorkspace = defineStore('workspace', () => {
   async function generate(next: Profile, ids: string[], extras: PlanExtras = {}): Promise<Plan> {
     if (generating.value) throw new Error('正在生成方案，请稍候。')
 
-    const snapshot = clone(next)
-    const selected = [...ids]
-    if (selected.some(id => !jobs.value.some(job => job.id === id && canPlanJob(job, snapshot.role)))) {
-      throw new Error('所选岗位不适用于当前规划方向，请重新选择岗位。')
-    }
-    const chosenJobs = clone(jobs.value.filter(job => selected.includes(job.id) && canPlanJob(job, snapshot.role)))
+    // 方向不再让人单独选：选中的样本都能选，方向取其中占比最大的那一类。
+    const chosenJobs = jobs.value.filter(job => ids.includes(job.id))
+    if (!chosenJobs.length) throw new Error(NO_PLANNABLE_JOB)
+
+    const derived = deriveRole(chosenJobs)
+    if (!hasPlanTemplate(derived)) throw new Error(noTemplateMessage(derived))
+
+    const role = derived
+    const plannedJobs = clone(chosenJobs.filter(job => canPlanJob(job, role)))
+    if (!plannedJobs.length) throw new Error(NO_PLANNABLE_JOB)
+
+    const snapshot: Profile = { ...clone(next), role }
+    const selected = plannedJobs.map(job => job.id)
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
     const version = latestVersion + 1
     const revision = workspaceRevision
@@ -198,8 +228,8 @@ export const useWorkspace = defineStore('workspace', () => {
     generating.value = true
     try {
       const built = remotePlanEnabled()
-        ? await requestPlan(snapshot, chosenJobs, version, { customTasks, dropModules })
-        : createPlan(snapshot, chosenJobs, version)
+        ? await requestPlan(snapshot, plannedJobs, version, { customTasks, dropModules })
+        : createPlan(snapshot, plannedJobs, version)
 
       if (revision !== workspaceRevision) throw new Error('工作区已重置，已忽略这次生成结果。')
 

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { ArrowUpRight, Check, ChevronDown, FileText, Plus, X } from '@lucide/vue'
 import { useWorkspace } from '../store'
-import { canPlanJob, jobRoleNames, roleNames } from '../data'
+import { hasPlanTemplate, isPlannableJob, jobRoleNames } from '../data'
 import type { Job, JobRole } from '../types'
 
 const store = useWorkspace()
@@ -13,10 +13,11 @@ const catalogJobs = computed(() => store.jobs.filter(job =>
   job.source === 'collected' || job.source === 'imported' || isLegacySelection(job),
 ))
 const available = computed(() => catalogJobs.value.filter(job => category.value === 'all' || job.role === category.value))
-const selectable = computed(() => available.value.filter(job => canPlanJob(job, store.profile.role)))
+const selectable = computed(() => available.value)
 const allSelected = computed(() =>
   selectable.value.length > 0 && selectable.value.every(job => store.selectedIds.includes(job.id)),
 )
+
 const selectionLabel = computed(() =>
   allSelected.value ? '取消全选' : '选择全部',
 )
@@ -43,7 +44,7 @@ function addJob(): void {
   const id = `import-${crypto.randomUUID()}`
   store.jobs.push({
     id,
-    role: store.profile.role,
+    role: /python|后端|服务端|backend/i.test(`${title.value} ${text.value}`) ? 'backend' : 'frontend',
     title: title.value.trim() || '导入的岗位',
     company: '用户导入',
     education: '见原文',
@@ -79,7 +80,7 @@ function selectAll(): void {
 }
 
 function isSelected(job: Job): boolean {
-  return isLegacySelection(job) || (canPlanJob(job, store.profile.role) && store.selectedIds.includes(job.id))
+  return store.selectedIds.includes(job.id)
 }
 
 function isLegacySelection(job: Job): boolean {
@@ -93,30 +94,20 @@ function toggleSelection(job: Job, event: Event): void {
     input.checked = false
     return
   }
-  if (!canPlanJob(job, store.profile.role)) {
-    input.checked = false
-    return
-  }
   store.selectedIds = input.checked
     ? [...new Set([...store.selectedIds, job.id])]
     : store.selectedIds.filter(id => id !== job.id)
 }
 
-function browsingReason(job: Job): string {
+function templateNote(job: Job): string {
   if (job.source === 'demo') return ''
-  if (canPlanJob(job, store.profile.role)) return ''
-  if (job.role === 'backend' && !canPlanJob(job, 'backend')) {
-    return '仅供浏览：该岗位未明确接受 Python，不适用于现有 Python 后端规划。'
-  }
-  if (job.role === 'frontend' || job.role === 'backend') {
-    return `仅供浏览：与当前${roleNames[store.profile.role]}规划目标不同。`
-  }
-  return `仅供浏览：暂不支持${jobRoleNames[job.role]}方向的规划。`
+  if (hasPlanTemplate(job.role)) return ''
+  return `可以选作分析样本：${jobRoleNames[job.role]}方向暂时还没有路线模板。`
 }
 
 function acceptsMultipleLanguages(job: Job): boolean {
   return job.source === 'collected' && job.role === 'backend' &&
-    canPlanJob(job, 'backend') && !/python/i.test(job.title)
+    isPlannableJob(job) && !/python/i.test(job.title)
 }
 
 function toggleExpanded(id: string): void {
@@ -151,7 +142,7 @@ function toggleExpanded(id: string): void {
 
     <div v-if="importing" class="import-form" role="group" aria-label="导入岗位表单">
       <div class="section-heading">
-        <h3>导入{{ roleNames[store.profile.role] }}岗位原文</h3>
+        <h3>导入岗位原文</h3>
         <button type="button" class="icon-button" aria-label="收起导入表单" @click="importing = false">
           <X :size="19" />
         </button>
@@ -186,9 +177,8 @@ function toggleExpanded(id: string): void {
               type="checkbox"
               :value="job.id"
               :checked="isSelected(job)"
-              :disabled="!canPlanJob(job, store.profile.role) && !isLegacySelection(job)"
               :aria-label="`选择 ${job.title} ${job.company}`"
-              :aria-describedby="browsingReason(job) ? `job-availability-${job.id}` : undefined"
+              :aria-describedby="templateNote(job) ? `job-availability-${job.id}` : undefined"
               @change="toggleSelection(job, $event)"
             />
             <span class="job-check">
@@ -212,8 +202,8 @@ function toggleExpanded(id: string): void {
         <p v-if="acceptsMultipleLanguages(job)" class="job-planning-note">
           接受 Python，多语言岗位；原文允许从多种语言中选择。
         </p>
-        <p v-if="browsingReason(job)" :id="`job-availability-${job.id}`" class="job-planning-note">
-          {{ browsingReason(job) }}
+        <p v-if="templateNote(job)" :id="`job-availability-${job.id}`" class="job-planning-note">
+          {{ templateNote(job) }}
         </p>
 
         <button

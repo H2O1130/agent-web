@@ -531,7 +531,7 @@ function compareTask(id: string, before: Plan, after: Plan): TaskChange {
   const newTask = after.tasks.find(task => task.id === id)
 
   if (!oldTask) {
-    return buildChange(id, oldTask, newTask, '新增', '根据新的目标岗位、样本能力或发展路径增加。')
+    return buildChange(id, oldTask, newTask, '新增', '根据新的岗位样本、能力要求或发展路径增加。')
   }
 
   if (!newTask) {
@@ -585,7 +585,7 @@ function describeDelay(before: Plan, after: Plan, oldTask: PlannedTask, newTask:
     causes.push(`路径从${pathNames[before.profile.path]}改为${pathNames[after.profile.path]}，重新分配学习时间`)
   }
   if (before.profile.role !== after.profile.role) {
-    causes.push('目标岗位变化，重新安排专项与前置任务')
+    causes.push('岗位样本变化，重新安排专项与前置任务')
   }
   if (before.profile.interests.join() !== after.profile.interests.join()) {
     causes.push('兴趣变化，重新排序可选任务')

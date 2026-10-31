@@ -59,7 +59,7 @@ function loadDemoProfile(): void {
       </div>
 
       <h1>
-        从目标岗位出发，<br />规划大学<span class="gold-text hero-emphasis">每一步<svg viewBox="0 0 245 14" aria-hidden="true">
+        从岗位要求出发，<br />规划大学<span class="gold-text hero-emphasis">每一步<svg viewBox="0 0 245 14" aria-hidden="true">
           <path d="M3 10Q112 0 240 7" />
         </svg></span>。
       </h1>
