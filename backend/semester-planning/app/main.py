@@ -1,12 +1,21 @@
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.chat import router as chat_router
-from app.api.llm import router as llm_router
-from app.api.plan import router as plan_router
-from app.core.errors import ApiError
+# AI 对话模块独立在 backend/ai-chat，复用本服务的模型、LLM 客户端与配置
+AI_CHAT_PATH = Path(__file__).resolve().parents[2] / "ai-chat"
+if str(AI_CHAT_PATH) not in sys.path:
+    sys.path.insert(0, str(AI_CHAT_PATH))
+
+from ai_chat.api import router as chat_router  # noqa: E402
+
+from app.api.llm import router as llm_router  # noqa: E402
+from app.api.plan import router as plan_router  # noqa: E402
+from app.core.errors import ApiError  # noqa: E402
 
 app = FastAPI(title="PathPilot Semester Planning")
 

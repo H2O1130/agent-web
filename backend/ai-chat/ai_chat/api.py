@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
+from ai_chat.models import ChatRequest
+from ai_chat.service import create_reply
 from app.api.deps import ClientDependency
-from app.models import ChatRequest
-from app.services.chat import create_reply
 
 router = APIRouter()
 

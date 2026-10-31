@@ -1,6 +1,6 @@
 import json
 
-from app.models import ChatRequest
+from ai_chat.models import ChatRequest
 
 CHAT_SYSTEM_PROMPT = """你是「学途 PathPilot」的大学生职业成长规划助手，正在和用户讨论他已经有的一份成长规划。
 用简体中文、口语化、简洁地交流，每次回复不超过 4 句；先理解用户的诉求，必要时追问一句，不要编造用户信息。

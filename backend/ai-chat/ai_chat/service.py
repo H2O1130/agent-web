@@ -2,10 +2,11 @@ import math
 
 from pydantic import ValidationError
 
+from ai_chat.models import ChatRequest, ChatResponse
+from ai_chat.prompt import build_chat_messages
 from app.core.errors import ApiError
-from app.llm.chat_prompt import build_chat_messages
 from app.llm.client import LLMInvalidOutput, LLMTimeout, LLMUnavailable
-from app.models import ChatRequest, ChatResponse, Profile
+from app.models import Profile
 from app.services.micro_catalog import DROPPABLE_MODULES, normalize_custom_tasks
 
 
