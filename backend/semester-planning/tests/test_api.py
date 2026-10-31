@@ -213,6 +213,35 @@ def test_plan_swaps_module_for_custom_tasks(client, profile, jobs, valid_llm_pla
     assert java["semester"] == 3
 
 
+def test_custom_task_from_chat_must_appear_in_plan(client, profile, jobs, valid_llm_plan):
+    custom = [
+        CustomTask(
+            id="java-basics",
+            title="Java 语法与集合",
+            action="完成 20 道集合练习",
+            done="能写出增删改查",
+            weeks=2,
+            kind="专项",
+            moduleName="Java",
+        )
+    ]
+    missing = deepcopy(valid_llm_plan)
+    scheduled = deepcopy(valid_llm_plan)
+    scheduled["periods"][0]["items"].append({"id": "custom-java-basics", "weeks": "第 1—2 周"})
+    fake = FakeClient([missing, scheduled])
+    app.dependency_overrides[get_llm_client] = lambda: fake
+
+    payload = PlanRequest(
+        profile=profile, jobs=jobs, version=2, customTasks=custom
+    ).model_dump()
+    response = client.post("/api/plan", json=payload)
+
+    assert response.status_code == 200
+    ids = {task["id"] for task in response.json()["plan"]["tasks"]}
+    assert "custom-java-basics" in ids
+    assert fake.call_count == 2
+
+
 def test_bad_custom_task_returns_400(client, profile, jobs):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient([])
 

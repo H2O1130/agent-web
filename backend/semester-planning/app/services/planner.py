@@ -44,6 +44,8 @@ def create_plan(request: PlanRequest, client) -> Plan:
         for task_id in required_micro_ids(request.profile, {stat.id for stat in analysis})
         if task_id in catalog_ids
     }
+    # 对话里确认过的补充任务必须排进方案，否则会出现「确认了但没调整到」
+    required_ids |= {task.id for task in custom_tasks if task.id in catalog_ids}
     if request.profile.hours == 0:
         return build_paused_plan(request, analysis, catalog, required_ids)
 
