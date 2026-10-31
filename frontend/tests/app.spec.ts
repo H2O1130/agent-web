@@ -1,4 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
+import type { Job, Profile } from '../src/types'
+import { remotePlan } from './fixtures/remote-plan'
+
+// 前端默认走后端（Vite 代理 /backend）；端到端用夹具替代真实模型，保证离线可重复
+test.beforeEach(async ({ page }) => {
+  await page.route('**/backend/api/plan', async route => {
+    const body = route.request().postDataJSON() as { profile: Profile; jobs: Job[]; version: number }
+    await route.fulfill({ json: { plan: remotePlan(body.profile, body.jobs, body.version) } })
+  })
+  await page.route('**/backend/api/llm/status', route => route.fulfill({ json: { configured: false, model: '' } }))
+})
 
 async function completeWizard(page: Page) {
   await page.goto('/')
@@ -26,6 +37,7 @@ test('桌面完整任务、导出、12→6 小时调整与历史版本保护', a
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('学途-成长计划-V1.md')
   await page.getByRole('link', { name: '调整方案', exact: true }).click()
+  await page.getByRole('tab', { name: '调整成长方案' }).click()
   await page.getByRole('button', { name: '一键演示：每周 12 小时改为 6 小时' }).click()
   await expect(page.getByText('新方案已保存，原方案未修改。')).toBeVisible()
   await page.getByRole('button', { name: /^全部/ }).click()
@@ -45,6 +57,7 @@ test('手机端完成同一主流程，并可用折叠菜单导航', async ({ pa
   await page.getByRole('button', { name: '分析岗位并生成路线' }).click()
   await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
   await page.getByRole('link', { name: '调整方案', exact: true }).click()
+  await page.getByRole('tab', { name: '调整成长方案' }).click()
   await page.getByRole('button', { name: '一键演示：每周 12 小时改为 6 小时' }).click()
   await expect(page.getByText('新方案已保存，原方案未修改。')).toBeVisible()
   await page.getByRole('button', { name: '打开导航菜单' }).click()
@@ -142,7 +155,7 @@ test('模型设置：保存密钥后页头显示已接入模型', async ({ page 
   const dialog = page.getByRole('dialog', { name: '接入 AI' })
   await expect(dialog).toBeVisible()
 
-  await dialog.getByLabel('密钥', { exact: true }).fill('sk-e2e-test')
+  await dialog.getByLabel('DeepSeek 密钥').fill('sk-e2e-test')
   await dialog.getByRole('button', { name: '保存' }).click()
   await expect(dialog.getByText('已保存在本机浏览器')).toBeVisible()
 
@@ -166,9 +179,9 @@ test('模型设置：Esc 关闭并清除密钥', async ({ page }) => {
   await page.getByRole('button', { name: '模型设置' }).click()
   const dialog = page.getByRole('dialog', { name: '接入 AI' })
 
-  await expect(dialog.getByLabel('密钥', { exact: true })).toHaveValue('sk-old')
+  await expect(dialog.getByLabel('DeepSeek 密钥')).toHaveValue('sk-old')
   await dialog.getByRole('button', { name: '清除' }).click()
-  await expect(dialog.getByLabel('密钥', { exact: true })).toHaveValue('')
+  await expect(dialog.getByLabel('DeepSeek 密钥')).toHaveValue('')
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   expect(await page.evaluate(() => localStorage.getItem('pathpilot-llm'))).toBeNull()
