@@ -281,6 +281,9 @@ defineExpose({ focusInput })
           </li>
         </ul>
         <p class="muted">确认后会按新条件重新生成一版方案（版本 +1）。</p>
+        <p v-if="applying" class="small-label" role="status">
+          模型正在生成任务，已等待 {{ store.generationElapsed }} 秒{{ store.generationElapsed >= 60 ? '（可继续等待，或稍后重试）' : '' }}
+        </p>
       </div>
       <div class="chat-proposal-actions">
         <button class="button primary small" :disabled="applying" @click="applyProposal">
@@ -290,7 +293,10 @@ defineExpose({ focusInput })
       </div>
     </div>
 
-    <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+    <p v-if="error" class="form-error" role="alert">
+      {{ error }}
+      <button v-if="proposal" type="button" class="text-button" :disabled="applying" @click="applyProposal">重试生成</button>
+    </p>
 
     <form class="chat-input" @submit.prevent="send">
       <input

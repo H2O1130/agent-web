@@ -15,6 +15,7 @@ import JobsPicker from '../components/JobsPicker.vue'
 import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
 import { realJobs, roleNames, skills } from '../data'
+import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from '../analysisCache'
 import { analyzeJobs } from '../planning'
 import { remotePlanEnabled, requestAnalyze } from '../api'
 import { useWorkspace } from '../store'
@@ -57,6 +58,7 @@ const remoteSkills = ref<SkillStat[]>()
 const remoteMappings = ref<MappingRow[]>([])
 const analyzeLoading = ref(false)
 const analyzeError = ref('')
+const analyzeCached = ref(false)
 let analyzeRevision = 0
 
 const analysis = computed(() => remoteSkills.value ?? analyzeJobs(contextJobs.value))
@@ -72,7 +74,8 @@ const remoteMapping = computed(() => {
 const localMapping = computed(() => skills.find(skill => skill.id === active.value?.id))
 const analyzeSource = computed(() => {
   if (analyzeLoading.value) return '正在归并技能…'
-  return remoteSkills.value ? '后端技能归并' : '本地规则预览'
+  if (remoteSkills.value) return analyzeCached.value ? '后端技能归并（缓存）' : '后端技能归并'
+  return '本地规则预览'
 })
 
 async function loadAnalysis(): Promise<void> {
@@ -80,16 +83,29 @@ async function loadAnalysis(): Promise<void> {
   if (!remotePlanEnabled() || !contextJobs.value.length) {
     remoteSkills.value = undefined
     remoteMappings.value = []
+    analyzeCached.value = false
+    return
+  }
+
+  const cacheKey = analysisCacheKey(contextJobs.value, contextProfile.value, store.effectiveDirection)
+  const cached = readAnalysisCache(cacheKey)
+  if (cached) {
+    remoteSkills.value = cached.skills
+    remoteMappings.value = cached.mappings
+    analyzeCached.value = true
+    analyzeLoading.value = false
     return
   }
 
   const revision = ++analyzeRevision
+  analyzeCached.value = false
   analyzeLoading.value = true
   try {
     const result = await requestAnalyze(contextJobs.value, contextProfile.value)
     if (revision !== analyzeRevision) return
     remoteSkills.value = result.skills
     remoteMappings.value = result.mappings
+    writeAnalysisCache(cacheKey, result)
   } catch (cause) {
     if (revision !== analyzeRevision) return
     remoteSkills.value = undefined
@@ -165,10 +181,15 @@ async function generate(): Promise<void> {
         <p>{{ introText }}</p>
       </div>
 
-      <button v-if="!snapshot" class="button primary" :disabled="store.generating" @click="generate">
-        {{ store.generating ? '正在生成…' : '生成成长路线' }}<ArrowRight :size="17" />
-      </button>
-      <button v-else class="button secondary" @click="openSnapshot">返回这份路线<ArrowRight :size="17" /></button>
+      <div class="heading-actions">
+        <span v-if="store.generating" class="small-label" role="status">
+          模型正在生成任务，已等待 {{ store.generationElapsed }} 秒{{ store.generationElapsed >= 60 ? '（可继续等待，或稍后重试）' : '' }}
+        </span>
+        <button v-if="!snapshot" class="button primary" :disabled="store.generating" @click="generate">
+          {{ store.generating ? '正在生成…' : '生成成长路线' }}<ArrowRight :size="17" />
+        </button>
+        <button v-else class="button secondary" @click="openSnapshot">返回这份路线<ArrowRight :size="17" /></button>
+      </div>
     </div>
 
     <div class="workspace-toolbar">
@@ -217,6 +238,7 @@ async function generate(): Promise<void> {
 
     <p v-if="analyzeError" class="notice-bar" role="status">
       后端岗位分析未完成：{{ analyzeError }}（已回退本地规则预览）
+      <button type="button" class="text-button" @click="loadAnalysis">重试分析</button>
     </p>
 
     <div v-if="!analysis.length" class="empty-state panel">
@@ -375,6 +397,9 @@ async function generate(): Promise<void> {
       </section>
     </template>
 
-    <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+    <p v-if="error" class="form-error" role="alert">
+      {{ error }}
+      <button type="button" class="text-button" :disabled="store.generating" @click="generate">重试生成</button>
+    </p>
   </div>
 </template>

@@ -216,7 +216,7 @@ test('调整请求失败时旧方案和活动版本保持不变', async ({ page 
   await page.getByRole('tab', { name: '调整成长方案', exact: true }).click()
   await page.getByLabel('调整每周小时', { exact: true }).fill('6')
   await page.getByRole('button', { name: '按这些条件重新生成', exact: true }).click()
-  await expect(page.getByRole('alert')).toHaveText('规划服务未配置模型密钥。')
+  await expect(page.getByRole('alert')).toContainText('规划服务未配置模型密钥。')
   const after = await workspace(page)
   expect(after.plans).toEqual(before.plans)
   expect(after.activeId).toBe(before.activeId)

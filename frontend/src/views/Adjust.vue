@@ -166,7 +166,10 @@ async function applyHoursDemo(): Promise<void> {
               ><Sparkles :size="15" />和 AI 聊聊</button>
             </div>
 
-            <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+            <p v-if="error" class="form-error" role="alert">
+              {{ error }}
+              <button type="button" class="text-button" :disabled="store.generating" @click="adjust">重试生成</button>
+            </p>
 
             <div v-if="mode === 'manual'" class="adjust-action">
               <button class="button primary full-width" :disabled="store.generating" @click="adjust">
@@ -175,6 +178,9 @@ async function applyHoursDemo(): Promise<void> {
               <button class="demo-adjust" :disabled="store.generating" @click="applyHoursDemo">
                 <RefreshCw :size="15" />一键演示：每周 12 小时改为 6 小时
               </button>
+              <p v-if="store.generating" class="small-label" role="status">
+                模型正在生成任务，已等待 {{ store.generationElapsed }} 秒{{ store.generationElapsed >= 60 ? '（可继续等待，或稍后重试）' : '' }}
+              </p>
               <p class="small-label">演示会将时间设为 6 小时；左侧原方案保持不变。</p>
             </div>
 

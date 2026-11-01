@@ -22,6 +22,26 @@ const selectionLabel = computed(() =>
   allSelected.value ? '取消全选' : '选择全部',
 )
 
+const selectedSummary = computed(() => {
+  const counts = new Map<string, number>()
+  for (const job of store.selectedJobs) counts.set(job.role, (counts.get(job.role) ?? 0) + 1)
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([role, count]) => `${jobRoleNames[role] ?? role} ${count}`)
+    .join(' / ')
+})
+
+const effectiveDirectionName = computed(() => {
+  const role = store.effectiveDirection
+  return jobRoleNames[role] ?? role
+})
+
+const directionHint = computed(() =>
+  store.direction
+    ? `当前方向：${effectiveDirectionName.value}`
+    : `自动判断：${effectiveDirectionName.value}`,
+)
+
 const expanded = ref('')
 const importing = ref(false)
 const title = ref('')
@@ -114,6 +134,7 @@ function toggleExpanded(id: string): void {
         <option value="">自动（按选中样本）</option>
         <option v-for="(name, id) in jobRoleNames" :key="id" :value="id">{{ name }}</option>
       </select>
+      <small class="field-hint">{{ directionHint }}</small>
     </label>
 
     <label class="field catalog-filter">
@@ -127,8 +148,8 @@ function toggleExpanded(id: string): void {
     <div class="picker-toolbar">
       <span class="catalog-counts" aria-live="polite">
         <span>岗位总数 <strong>{{ catalogJobs.length }}</strong> 条</span>
+        <span>已选 <strong>{{ store.selectedJobs.length }}</strong> 条{{ selectedSummary ? ` · ${selectedSummary}` : '' }}</span>
         <span>当前显示 <strong>{{ available.length }}</strong> 条</span>
-        <span>当前规划选中 <strong>{{ store.selectedJobs.length }}</strong> 条</span>
       </span>
 
       <div>

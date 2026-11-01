@@ -92,6 +92,8 @@ export const useWorkspace = defineStore('workspace', () => {
   const completed = ref<Record<string, string[]>>({})
   const storageWarning = ref('')
   const generating = ref(false)
+  const generationElapsed = ref(0)
+  let generationTimer: ReturnType<typeof setInterval> | undefined
   let workspaceRevision = 0
 
   try {
@@ -222,6 +224,12 @@ export const useWorkspace = defineStore('workspace', () => {
     }
 
     generating.value = true
+    const startedAt = Date.now()
+    generationElapsed.value = 0
+    if (generationTimer) clearInterval(generationTimer)
+    generationTimer = setInterval(() => {
+      generationElapsed.value = Math.floor((Date.now() - startedAt) / 1000)
+    }, 1000)
     try {
       const built = remotePlanEnabled()
         ? await requestPlan(snapshot, clone(chosenJobs), version, role, constraints)
@@ -239,6 +247,8 @@ export const useWorkspace = defineStore('workspace', () => {
       hasDraft.value = true
       return built
     } finally {
+      if (generationTimer) clearInterval(generationTimer)
+      generationTimer = undefined
       generating.value = false
     }
   }
@@ -270,6 +280,7 @@ export const useWorkspace = defineStore('workspace', () => {
     completed,
     storageWarning,
     generating,
+    generationElapsed,
     selectedJobs,
     activePlan,
     stale,

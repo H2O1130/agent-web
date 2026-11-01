@@ -16,7 +16,7 @@ import {
 } from '@lucide/vue'
 import AiChatDialog from '../components/AiChatDialog.vue'
 import { useWorkspace } from '../store'
-import { pathNames, roleNames } from '../data'
+import { jobRoleNames, pathNames, roleNames } from '../data'
 import type { Plan, PlannedTask } from '../types'
 
 const SEMESTER_LABELS = ['大一上', '大一下', '大二上', '大二下', '大三上', '大三下', '大四上', '大四下']
@@ -51,6 +51,17 @@ function onAiApplied(): void {
 
 const plan = computed(() => store.activePlan)
 const overview = computed(() => plan.value?.overview)
+const directionName = computed(() => {
+  const role = plan.value?.profile.role ?? ''
+  return jobRoleNames[role] ?? roleNames[role] ?? role
+})
+const generatedAt = computed(() => {
+  const value = plan.value?.createdAt
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('zh-CN', { hour12: false })
+})
 const done = computed(() => {
   const current = plan.value
   if (!current) return []
@@ -281,13 +292,17 @@ function exportPlan(): void {
       <section class="plan-hero">
         <div class="plan-hero-main">
           <span class="tag light-tag">成长路线 · V{{ plan.version }}</span>
-          <h2>{{ roleNames[plan.profile.role] }}<span>从现在开始，积累你的下一份成果</span></h2>
+          <h2>{{ directionName }}<span>从现在开始，积累你的下一份成果</span></h2>
           <div class="plan-meta">
             <span><BookOpen :size="15" />{{ plan.profile.major }}</span>
             <span><CalendarDays :size="15" />第 {{ plan.profile.semester }} 学期</span>
             <span><Clock :size="15" />每周 {{ plan.profile.hours }} 小时</span>
             <span><Target :size="15" />{{ pathNames[plan.profile.path] }}</span>
           </div>
+          <p class="small-label plan-provenance">
+            生成依据：{{ directionName }} · {{ plan.jobIds.length }} 条岗位样本 · {{ overview?.stack.length ?? 0 }} 项技能
+            <template v-if="generatedAt"> · {{ generatedAt }}</template> · 课程与项目为 AI 生成示例
+          </p>
         </div>
 
         <div class="plan-progress">
