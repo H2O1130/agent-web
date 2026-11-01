@@ -29,6 +29,12 @@ const main = ref<HTMLElement>()
 
 const settingsButton = ref<HTMLButtonElement>()
 
+const footerNote = computed(() =>
+  remotePlanEnabled()
+    ? '岗位样本为示例 · 规划与课程映射由 AI 动态生成'
+    : '本地样本与规则演示',
+)
+
 onMounted(async () => {
   if (!remotePlanEnabled()) return
   try {
@@ -181,6 +187,6 @@ function menuKeys(event: KeyboardEvent): void {
       <RouterLink to="/" class="footer-brand"><Compass :size="18" /> 学途 PathPilot</RouterLink>
       <span>让学习有方向，让成长有依据。</span>
     </div>
-    <span>本地样本与规则演示</span>
+    <span>{{ footerNote }}</span>
   </footer>
 </template>

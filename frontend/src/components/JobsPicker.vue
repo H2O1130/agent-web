@@ -128,22 +128,24 @@ function toggleExpanded(id: string): void {
 
 <template>
   <div class="jobs-picker">
-    <label class="field catalog-filter">
-      规划方向
-      <select v-model="store.direction" aria-label="规划方向">
-        <option value="">自动（按选中样本）</option>
-        <option v-for="(name, id) in jobRoleNames" :key="id" :value="id">{{ name }}</option>
-      </select>
-      <small class="field-hint">{{ directionHint }}</small>
-    </label>
+    <div class="picker-filters">
+      <label class="field catalog-filter">
+        规划方向
+        <select v-model="store.direction" aria-label="规划方向">
+          <option value="">自动（按选中样本）</option>
+          <option v-for="(name, id) in jobRoleNames" :key="id" :value="id">{{ name }}</option>
+        </select>
+        <small class="field-hint">{{ directionHint }}</small>
+      </label>
 
-    <label class="field catalog-filter">
-      岗位分类
-      <select v-model="category" aria-label="岗位分类">
-        <option value="all">全部分类</option>
-        <option v-for="[key, name] in categories" :key="key" :value="key">{{ name }}</option>
-      </select>
-    </label>
+      <label class="field catalog-filter">
+        岗位分类
+        <select v-model="category" aria-label="岗位分类">
+          <option value="all">全部分类</option>
+          <option v-for="[key, name] in categories" :key="key" :value="key">{{ name }}</option>
+        </select>
+      </label>
+    </div>
 
     <div class="picker-toolbar">
       <span class="catalog-counts" aria-live="polite">

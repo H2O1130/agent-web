@@ -14,7 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import JobsPicker from '../components/JobsPicker.vue'
 import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
-import { realJobs, roleNames, skills } from '../data'
+import { realJobs, roleLabel, skills } from '../data'
 import { analysisCacheKey, readAnalysisCache, writeAnalysisCache } from '../analysisCache'
 import { analyzeJobs } from '../planning'
 import { remotePlanEnabled, requestAnalyze } from '../api'
@@ -193,8 +193,8 @@ async function generate(): Promise<void> {
     </div>
 
     <div class="workspace-toolbar">
-      <span v-if="snapshot" class="tag gold-tag">{{ roleNames[contextRole] }} · 方案 V{{ snapshot.version }} 的样本</span>
-      <span v-else class="tag">按选中的岗位样本分析</span>
+      <span v-if="snapshot" class="tag gold-tag">{{ roleLabel(contextRole) }} · 方案 V{{ snapshot.version }} 的样本</span>
+      <span v-else class="tag">{{ roleLabel(contextRole) }} · {{ contextJobs.length }} 条样本</span>
 
       <button
         v-if="!snapshot"

@@ -16,7 +16,7 @@ import {
 } from '@lucide/vue'
 import AiChatDialog from '../components/AiChatDialog.vue'
 import { useWorkspace } from '../store'
-import { jobRoleNames, pathNames, roleNames } from '../data'
+import { jobRoleNames, pathNames, roleLabel, roleNames } from '../data'
 import type { Plan, PlannedTask } from '../types'
 
 const SEMESTER_LABELS = ['大一上', '大一下', '大二上', '大二下', '大三上', '大三下', '大四上', '大四下']
@@ -178,7 +178,7 @@ function buildExport(current: Plan): string {
     '',
     `专业：${current.profile.major}`,
     `当前学期：${current.profile.semester}`,
-    `目标：${roleNames[current.profile.role]}`,
+    `目标：${roleLabel(current.profile.role)}`,
     `每周课外时间：${current.profile.hours} 小时`,
     `路径：${pathNames[current.profile.path]}`,
     `生成时间：${new Date(current.createdAt).toLocaleString('zh-CN')}`,

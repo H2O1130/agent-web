@@ -32,6 +32,10 @@ export function defaultJobIds(role: Role, jobs: readonly Job[] = realJobs): stri
 
 export const roleNames: Record<string, string> = jobRoleNames
 
+export function roleLabel(role: string): string {
+  return jobRoleNames[role] ?? roleNames[role] ?? role
+}
+
 export const pathNames: Record<CareerPath, string> = {
   job: '就业优先',
   graduate: '考研优先',

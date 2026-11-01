@@ -5,7 +5,7 @@ import { DEFAULT_ADJUST_MODE, createModePicker, type AdjustMode } from '../adjus
 import ChatAssistant from '../components/ChatAssistant.vue'
 import ChoiceCard from '../components/ChoiceCard.vue'
 import { clone } from '../clone'
-import { pathNames, roleNames, taskPeriod } from '../data'
+import { pathNames, roleLabel, taskPeriod } from '../data'
 import { diffPlans } from '../planning'
 import { useWorkspace } from '../store'
 import type { CareerPath, Plan, Profile } from '../types'
@@ -200,7 +200,7 @@ async function applyHoursDemo(): Promise<void> {
           <div class="comparison-conditions">
             <article>
               <span class="small-label">调整前 · V{{ original.version }}</span>
-              <h3>{{ roleNames[original.profile.role] }}</h3>
+              <h3>{{ roleLabel(original.profile.role) }}</h3>
               <div><Clock :size="16" /><strong>{{ original.profile.hours }}</strong> 小时 / 周</div>
               <span class="tag">{{ pathNames[original.profile.path] }}</span>
             </article>
@@ -209,7 +209,7 @@ async function applyHoursDemo(): Promise<void> {
 
             <article :class="{ 'after-ready': result }">
               <span class="small-label">{{ result ? `调整后 · V${result.version}` : '待生成的新方案' }}</span>
-              <h3>{{ roleNames[result?.profile.role ?? draft.role] }}</h3>
+              <h3>{{ roleLabel(result?.profile.role ?? draft.role) }}</h3>
               <div><Clock :size="16" /><strong>{{ result?.profile.hours ?? draft.hours }}</strong> 小时 / 周</div>
               <span class="tag">{{ pathNames[result?.profile.path ?? draft.path] }}</span>
             </article>

@@ -1604,6 +1604,23 @@ progress::-moz-progress-bar {
   color: var(--gold-ink);
 }
 
+.picker-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.picker-filters .catalog-filter {
+  margin-bottom: 0;
+}
+
+@media (max-width: 639px) {
+  .picker-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
 .picker-toolbar {
   display: flex;
   align-items: center;

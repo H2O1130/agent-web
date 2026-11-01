@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { ArrowRight, Check, Clock, GitBranch, History, Trash2 } from '@lucide/vue'
 import { useRouter } from 'vue-router'
-import { pathNames, roleNames } from '../data'
+import { pathNames, roleLabel } from '../data'
 import { diffPlans } from '../planning'
 import { useWorkspace } from '../store'
 import type { Plan } from '../types'
@@ -102,7 +102,7 @@ function removePlan(id: string): void {
         </div>
 
         <span class="small-label">PLAN / V{{ String(plan.version).padStart(2, '0') }}</span>
-        <h2>{{ roleNames[plan.profile.role] }}</h2>
+        <h2>{{ roleLabel(plan.profile.role) }}</h2>
 
         <div class="history-meta">
           <span>第 {{ plan.profile.semester }} 学期</span>
@@ -110,7 +110,7 @@ function removePlan(id: string): void {
           <span>{{ pathNames[plan.profile.path] }}</span>
         </div>
 
-        <p>{{ scheduledCount(plan) }} 项已安排行动 · {{ pendingCount(plan) }} 项待安排</p>
+        <p>{{ scheduledCount(plan) }} 项已安排行动 · {{ pendingCount(plan) }} 项待安排 · {{ plan.jobIds.length }} 条岗位样本</p>
         <time :datetime="plan.createdAt">{{ new Date(plan.createdAt).toLocaleString('zh-CN') }}</time>
 
         <div class="history-card-actions">
