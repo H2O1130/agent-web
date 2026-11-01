@@ -85,12 +85,7 @@ async function adjust(): Promise<void> {
   const jobIds = base.jobIds
 
   try {
-    // 已经通过对话换掉的模块、补充的任务要跟着走，否则改个时长就全丢
-    const latest = result.value ?? base
-    result.value = await store.generate(nextProfile, jobIds, {
-      customTasks: latest.customTasks,
-      dropModules: latest.dropModules,
-    })
+    result.value = await store.generate(nextProfile, jobIds)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '请检查调整条件后重试。'
   }

@@ -1,5 +1,5 @@
-export type Role = 'frontend' | 'backend'
-export type JobRole = Role | 'product' | 'agent' | 'llm' | 'devops' | 'embedded' | 'data' | 'testing'
+export type Role = string
+export type JobRole = string
 export type CareerPath = 'job' | 'graduate' | 'undecided'
 export type ScoreKey = 'programming' | 'project' | 'analysis' | 'communication'
 export type PeriodKind = 'semester' | 'summer' | 'winter'
@@ -48,6 +48,26 @@ export interface SkillStat {
   name: string
   count: number
   evidence: Evidence[]
+}
+
+/** 后端课程映射的一行：技能 → 课程 → 项目，附来源。 */
+export interface MappingRow {
+  skillId: string
+  skillName: string
+  skillCount: number
+  jobIds: string[]
+  courseId: string
+  course: string
+  courseSemester: number | null
+  projectId: string
+  project: string
+  outcome: string
+  acceptance: string
+  reason: string
+  alreadyTaken: boolean
+  courseSource: string
+  projectSource: string
+  sourceKind: string
 }
 
 export interface PlannedTask {
@@ -153,13 +173,18 @@ export interface ChatMessage {
   content: string
 }
 
+export interface PlanConstraints {
+  addSkills: string[]
+  removeSkills: string[]
+  keepTaskTitles: string[]
+}
+
 export interface ChatProposal {
   summary: string
   profile: Profile
-  /** 想新增的任务（词库里没有的方向，由 AI 现写） */
-  customTasks?: CustomTask[]
-  /** 想替换掉的模块 id */
-  dropModules?: string[]
+  addSkills?: string[]
+  removeSkills?: string[]
+  keepTaskTitles?: string[]
 }
 
 export interface ChatReply {

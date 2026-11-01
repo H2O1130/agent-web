@@ -38,10 +38,24 @@ ROLE_MODULES = {
         "backend-project",
         "backend-extension",
     },
+    "product": {"product"},
+    "agent": {"agent"},
+    "llm": {"llm"},
+    "devops": {"devops"},
+    "embedded": {"embedded"},
+    "data": {"data"},
+    "testing": {"testing"},
 }
 PORTFOLIO_PROJECT = {
     "frontend": "project-build",
     "backend": "backend-build",
+    "product": "product-project",
+    "agent": "agent-project",
+    "llm": "llm-project",
+    "devops": "devops-project",
+    "embedded": "embedded-project",
+    "data": "data-project",
+    "testing": "testing-project",
 }
 
 
@@ -65,6 +79,10 @@ def prerequisites_for(task: MicroTask, profile: Profile) -> tuple[str, ...]:
 
 
 def required_micro_ids(profile: Profile, selected_skills: set[str]) -> set[str]:
+    if profile.role not in ("frontend", "backend"):
+        # 新方向的任务目录较小：核心任务全部必选，保证排期完整
+        return {task.id for task in available_micro_tasks(profile) if task.core}
+
     required_modules = required_task_ids(profile, selected_skills)
     available = available_micro_tasks(profile)
     by_id = {task.id: task for task in available}

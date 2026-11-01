@@ -1,8 +1,7 @@
 import { apiBase, normalizeBase } from './apiConfig'
 import { clone } from './clone'
-import { canPlanJob } from './data'
 import { llmHeaders, type LlmSettings } from './llm'
-import type { ChatMessage, ChatReply, CustomTask, Job, Plan, Profile } from './types'
+import type { ChatMessage, ChatReply, Job, MappingRow, Plan, PlanConstraints, Profile, SkillStat } from './types'
 
 export function remotePlanEnabled(): boolean {
   return apiBase.value.length > 0
@@ -15,26 +14,17 @@ function jsonHeaders(using?: LlmSettings): Record<string, string> {
   }
 }
 
-export interface PlanExtras {
-  /** AI 在对话里补充的任务 */
-  customTasks?: CustomTask[]
-  /** 要替换掉的模块，例如把 python 换成 java */
-  dropModules?: string[]
-}
-
 export async function requestPlan(
   profile: Profile,
   jobs: Job[],
   version: number,
-  extras: PlanExtras = {},
+  directionHint: string,
+  constraints: PlanConstraints = { addSkills: [], removeSkills: [], keepTaskTitles: [] },
 ): Promise<Plan> {
   if (!remotePlanEnabled()) throw new Error('当前为本地演示，未启用后端连接。')
 
   const snapshot = clone(profile)
   const selected = clone(jobs)
-  if (selected.some(job => !canPlanJob(job, snapshot.role))) {
-    throw new Error('所选岗位不适用于当前规划方向，请重新选择岗位。')
-  }
   // 采集原文沿用后端 imported 契约，前端目录保留真实来源标记。
   const payloadJobs = selected.map(job => ({
     id: job.id, role: job.role, title: job.title, company: job.company,
@@ -53,8 +43,8 @@ export async function requestPlan(
         profile: snapshot,
         jobs: payloadJobs,
         version,
-        customTasks: extras.customTasks ?? [],
-        dropModules: extras.dropModules ?? [],
+        directionHint,
+        constraints,
       }),
     })
   } catch {
@@ -72,6 +62,43 @@ export async function requestPlan(
   }
 
   return data.plan as unknown as Plan
+}
+
+export interface AnalyzeResult {
+  skills: SkillStat[]
+  mappings: MappingRow[]
+}
+
+/** 岗位分析：技能归并 + 课程映射，都在后端完成。 */
+export async function requestAnalyze(jobs: Job[], profile: Profile): Promise<AnalyzeResult> {
+  if (!remotePlanEnabled()) throw new Error('当前为本地演示，未启用后端连接。')
+
+  let response: Response
+
+  try {
+    response = await fetch(`${apiBase.value}/api/analyze`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        jobs: jobs.map(job => ({ id: job.id, text: job.text })),
+        profile,
+      }),
+    })
+  } catch {
+    throw new Error('无法连接规划服务，请确认后端已启动。')
+  }
+
+  const data: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(messageOf(data) ?? '岗位分析服务暂时不可用，请稍后重试。')
+  }
+
+  if (!isRecord(data) || !Array.isArray(data.skills) || !Array.isArray(data.mappings)) {
+    throw new Error('岗位分析返回的数据格式不正确。')
+  }
+
+  return { skills: data.skills as SkillStat[], mappings: data.mappings as MappingRow[] }
 }
 
 interface ChatItemDigest {

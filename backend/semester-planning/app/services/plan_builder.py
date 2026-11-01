@@ -20,6 +20,13 @@ from app.services.micro_catalog import module_course, module_name, prerequisites
 ROLE_NAMES = {
     "frontend": "前端开发",
     "backend": "Python 后端开发",
+    "product": "产品经理",
+    "agent": "Agent 开发",
+    "llm": "大模型应用",
+    "devops": "运维 / DevOps",
+    "embedded": "嵌入式开发",
+    "data": "数据开发",
+    "testing": "软件测试",
 }
 PATH_NAMES = {
     "job": "就业优先",

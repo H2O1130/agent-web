@@ -1,0 +1,257 @@
+{
+  "skills": [
+    {
+      "id": "programming",
+      "name": "编程基础",
+      "aliases": [
+        "编程",
+        "程序设计",
+        "编程基础",
+        "程序设计基础"
+      ],
+      "regex": "编程|程序设计"
+    },
+    {
+      "id": "html",
+      "name": "HTML / CSS",
+      "aliases": [
+        "HTML",
+        "CSS",
+        "HTML/CSS",
+        "网页样式"
+      ],
+      "regex": "\\bhtml\\b|\\bcss\\b"
+    },
+    {
+      "id": "javascript",
+      "name": "JavaScript",
+      "aliases": [
+        "JavaScript",
+        "JS",
+        "ECMAScript"
+      ],
+      "regex": "javascript|\\bjs\\b"
+    },
+    {
+      "id": "typescript",
+      "name": "TypeScript",
+      "aliases": [
+        "TypeScript",
+        "TS"
+      ],
+      "regex": "typescript|\\bts\\b"
+    },
+    {
+      "id": "vue",
+      "name": "Vue",
+      "aliases": [
+        "Vue",
+        "Vue.js",
+        "Vue3"
+      ],
+      "regex": "\\bvue\\b"
+    },
+    {
+      "id": "git",
+      "name": "Git",
+      "aliases": [
+        "Git",
+        "版本控制",
+        "GitHub"
+      ],
+      "regex": "\\bgit\\b|\\bgithub\\b"
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "aliases": [
+        "Python",
+        "Python3"
+      ],
+      "regex": "\\bpython\\b"
+    },
+    {
+      "id": "sql",
+      "name": "SQL",
+      "aliases": [
+        "SQL",
+        "MySQL",
+        "数据库查询",
+        "PostgreSQL"
+      ],
+      "regex": "\\bsql\\b|mysql|postgres"
+    },
+    {
+      "id": "api",
+      "name": "API 接口",
+      "aliases": [
+        "API",
+        "REST",
+        "接口设计",
+        "HTTP"
+      ],
+      "regex": "\\bapi\\b|\\brest\\b|接口设计"
+    },
+    {
+      "id": "testing",
+      "name": "软件测试",
+      "aliases": [
+        "测试",
+        "测试用例",
+        "自动化测试",
+        "QA"
+      ],
+      "regex": "测试|QA"
+    },
+    {
+      "id": "communication",
+      "name": "沟通表达",
+      "aliases": [
+        "沟通",
+        "协作",
+        "表达",
+        "团队合作"
+      ],
+      "regex": "沟通|协作|表达"
+    },
+    {
+      "id": "linux",
+      "name": "Linux",
+      "aliases": [
+        "Linux",
+        "Shell",
+        "命令行",
+        "Bash"
+      ],
+      "regex": "linux|shell|bash|命令行"
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "aliases": [
+        "Docker",
+        "容器",
+        "容器化"
+      ],
+      "regex": "docker|容器"
+    },
+    {
+      "id": "kubernetes",
+      "name": "Kubernetes",
+      "aliases": [
+        "Kubernetes",
+        "K8s"
+      ],
+      "regex": "kubernetes|\\bk8s\\b"
+    },
+    {
+      "id": "cloud",
+      "name": "云计算",
+      "aliases": [
+        "云",
+        "云计算",
+        "AWS",
+        "阿里云",
+        "腾讯云"
+      ],
+      "regex": "云|aws|aliyun|阿里云|腾讯云"
+    },
+    {
+      "id": "ci",
+      "name": "CI/CD",
+      "aliases": [
+        "CI/CD",
+        "持续集成",
+        "流水线",
+        "Jenkins",
+        "GitHub Actions"
+      ],
+      "regex": "ci/cd|持续集成|流水线|jenkins|github actions"
+    },
+    {
+      "id": "monitoring",
+      "name": "监控告警",
+      "aliases": [
+        "监控",
+        "日志",
+        "告警",
+        "可观测性"
+      ],
+      "regex": "监控|日志|告警"
+    },
+    {
+      "id": "product",
+      "name": "产品设计",
+      "aliases": [
+        "产品设计",
+        "需求分析",
+        "PRD",
+        "用户研究"
+      ],
+      "regex": "产品|需求分析|prd|用户研究"
+    },
+    {
+      "id": "analytics",
+      "name": "数据分析",
+      "aliases": [
+        "数据分析",
+        "数据处理",
+        "可视化",
+        "指标"
+      ],
+      "regex": "数据分析|数据可视化|指标"
+    },
+    {
+      "id": "ml",
+      "name": "机器学习",
+      "aliases": [
+        "机器学习",
+        "模型训练",
+        "深度学习"
+      ],
+      "regex": "机器学习|深度学习|模型训练"
+    },
+    {
+      "id": "agent_skill",
+      "name": "Agent 应用",
+      "aliases": [
+        "Agent",
+        "智能体",
+        "工具调用",
+        "RAG"
+      ],
+      "regex": "agent|智能体|rag|工具调用"
+    },
+    {
+      "id": "embedded_c",
+      "name": "嵌入式 C",
+      "aliases": [
+        "嵌入式",
+        "单片机",
+        "C 语言",
+        "RTOS"
+      ],
+      "regex": "嵌入式|单片机|\\brtos\\b|\\bc 语言"
+    },
+    {
+      "id": "algorithms",
+      "name": "算法与数据结构",
+      "aliases": [
+        "算法",
+        "数据结构",
+        "LeetCode"
+      ],
+      "regex": "算法|数据结构|leetcode"
+    },
+    {
+      "id": "security",
+      "name": "安全基础",
+      "aliases": [
+        "安全",
+        "渗透测试",
+        "漏洞"
+      ],
+      "regex": "安全|漏洞|渗透"
+    }
+  ]
+}

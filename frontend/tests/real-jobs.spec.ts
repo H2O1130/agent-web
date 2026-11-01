@@ -40,7 +40,7 @@ const pythonIds = ['nc-462212', 'nc-432841', 'nc-460588']
 async function completeWizard(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: '载入演示画像' }).click()
-  for (let step = 0; step < 5; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await page.getByRole('button', { name: '下一步', exact: true }).click()
   }
   await page.getByRole('button', { name: '继续选择岗位样本' }).click()
@@ -87,6 +87,10 @@ async function mockPlanning(page: Page) {
       await route.fulfill({ json: { plan: remotePlan(payload.profile, payload.jobs, payload.version) } })
       return
     }
+    if (path === '/backend/api/analyze' && route.request().method() === 'POST') {
+      await route.fulfill({ json: { skills: [], mappings: [] } })
+      return
+    }
     await route.abort('failed')
     throw new Error(`Unexpected backend request: ${route.request().method()} ${path}`)
   })
@@ -107,34 +111,42 @@ test('默认展示全部 50 条真实样本，九类筛选计数准确且仅真�
   expect(await page.locator('.job-card input[type="checkbox"]').evaluateAll(nodes => nodes.map(node => (node as HTMLInputElement).value).sort()))
     .toEqual(realJobs.map(job => job.id).sort())
   await expect(page.locator('.job-list')).not.toContainText('演示样本')
+  await page.getByRole('button', { name: '选择全部', exact: true }).click()
+  await expect(page.locator('.job-card input:checked')).toHaveCount(50)
   await page.getByRole('button', { name: '取消全选', exact: true }).click()
   await expect(page.locator('.job-card input:checked')).toHaveCount(0)
-  await page.getByRole('button', { name: '选择全部', exact: true }).click()
-  await expect(page.locator('.job-card input:checked')).toHaveCount(5)
-  for (const job of realJobs.filter(item => item.role !== 'frontend')) {
-    await expect(card(page, job).getByRole('checkbox')).toBeDisabled()
+  for (const job of realJobs) {
+    await expect(card(page, job).getByRole('checkbox')).toBeEnabled()
   }
+  await page.getByRole('button', { name: '选择全部', exact: true }).click()
+  await expect(page.locator('.job-card input:checked')).toHaveCount(50)
 
+  const afterSelectAll = await workspace(page)
+  expect(afterSelectAll.selectedIds).toHaveLength(50)
   for (const [role, count] of Object.entries(categoryCounts)) {
     await category.selectOption(role)
     await expect(page.locator('.job-card')).toHaveCount(count)
     for (const job of realJobs.filter(item => item.role === role)) await expect(card(page, job)).toBeVisible()
     expect((await workspace(page)).profile).toEqual(initial.profile)
-    expect((await workspace(page)).selectedIds).toEqual(initial.selectedIds)
+    expect((await workspace(page)).selectedIds).toEqual(afterSelectAll.selectedIds)
   }
 })
 
-test('产品与 Agent 目录可展开真实原文和来源，无法误选或改变画像', async ({ page }) => {
+test('产品与 Agent 目录可展开真实原文和来源，勾选只影响样本不影响画像', async ({ page }) => {
   await completeWizard(page)
   const before = await workspace(page)
   for (const role of ['product', 'agent']) {
     await page.getByLabel('岗位分类', { exact: true }).selectOption(role)
     await expect(page.locator('.job-card')).toHaveCount(6)
     for (const job of realJobs.filter(item => item.role === role)) {
-      await expect(card(page, job).getByRole('checkbox')).toBeDisabled()
+      await expect(card(page, job).getByRole('checkbox')).toBeEnabled()
       await expect(card(page, job).getByRole('checkbox')).not.toBeChecked()
     }
-    await verifyOriginal(page, realJobs.find(job => job.role === role)!)
+    const first = realJobs.find(job => job.role === role)!
+    await card(page, first).getByRole('checkbox').check()
+    await expect(card(page, first)).toHaveClass(/is-selected/)
+    await card(page, first).getByRole('checkbox').uncheck()
+    await verifyOriginal(page, first)
     expect((await workspace(page)).profile).toEqual(before.profile)
     expect((await workspace(page)).selectedIds).toEqual(before.selectedIds)
   }
@@ -146,33 +158,25 @@ test('岗位洞察的后端目录显示五条，但 Python 规划全选仅提交
   const calls = await mockPlanning(page)
   await completeWizard(page)
   await page.goto('/#/analysis')
-  await page.getByRole('button', { name: 'Python 后端', exact: true }).click()
   await page.getByRole('button', { name: /浏览岗位库/ }).click()
+  await page.getByLabel('岗位分类', { exact: true }).selectOption('frontend')
+  await page.getByRole('button', { name: '取消全选', exact: true }).click()
+  await expect(page.locator('.job-card input:checked')).toHaveCount(0)
   await page.getByLabel('岗位分类', { exact: true }).selectOption('backend')
   await expect(page.locator('.job-card')).toHaveCount(5)
   for (const job of realJobs.filter(item => item.role === 'backend')) {
     const checkbox = card(page, job).getByRole('checkbox')
-    if (pythonIds.includes(job.id)) {
-      await expect(checkbox).toBeEnabled()
-      await expect(checkbox).toBeChecked()
-    } else {
-      await expect(checkbox).toBeDisabled()
-      await expect(checkbox).not.toBeChecked()
-      await expect(card(page, job)).toContainText(/Python/)
-    }
+    await expect(checkbox).toBeEnabled()
+    await expect(checkbox).not.toBeChecked()
   }
-  await page.getByRole('button', { name: '取消全选', exact: true }).click()
-  await expect(page.locator('.job-card input:checked')).toHaveCount(0)
   await page.getByRole('button', { name: '选择全部', exact: true }).click()
-  await expect(page.locator('.job-card input:checked')).toHaveCount(3)
+  await expect(page.locator('.job-card input:checked')).toHaveCount(5)
   await page.getByRole('button', { name: '生成成长路线', exact: true }).click()
   await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
   expect(calls).toHaveLength(1)
   expect(calls[0]!.profile.role).toBe('backend')
-  expect(calls[0]!.jobs.map(job => job.id).sort()).toEqual([...pythonIds].sort())
-  for (const excluded of ['nc-469522', 'nc-458051']) {
-    expect(calls[0]!.jobs.map(job => job.id)).not.toContain(excluded)
-  }
+  expect(calls[0]!.jobs).toHaveLength(5)
+  expect(calls[0]!.profile.role).toBe('backend')
 })
 
 test('真实前端原文以 imported 兼容接口出站，原始 ID、文本与链接不变且界面保持真实采集', async ({ page }) => {
@@ -256,7 +260,7 @@ test('旧前端计划同向调整后选中的历史演示仍可见、核对原�
   expect(await firstCard.locator('.job-original p').first().textContent()).toBe(first.text)
   // Historical selections remain reversible after the real catalog migration.
   await page.getByRole('button', { name: '选择全部', exact: true }).click()
-  await expect(page.locator('.job-card input:checked')).toHaveCount(11)
+  await expect(page.locator('.job-card input:checked')).toHaveCount(56)
   await page.getByRole('button', { name: '取消全选', exact: true }).click()
   expect((await workspace(page)).selectedIds).toEqual([])
   await expect(page.locator('.job-card')).toHaveCount(50)

@@ -1,152 +1,154 @@
 import logging
-import math
 
 from pydantic import ValidationError
 
 from app.core.errors import ApiError
+from app.core.registry import role_aliases, role_names
 from app.llm.client import LLMInvalidOutput, LLMTimeout, LLMUnavailable
-from app.llm.prompt import build_feedback, build_messages
-from app.llm.schema import LLMPlan
+from app.llm.dynamic_prompt import build_dynamic_messages, build_feedback
+from app.llm.dynamic_schema import DynamicPlan
 from app.models import Plan, PlanRequest
-from app.services.job_analysis import extract_skills
-from app.services.micro_catalog import (
-    available_micro_tasks,
-    catalog_with_custom,
-    normalize_custom_tasks,
-    required_micro_ids,
-)
-from app.services.plan_builder import build_paused_plan, build_plan
-from app.services.validator import validate_periods
+from app.services.dynamic_plan_builder import build_dynamic_plan, validate_profile
+from app.services.dynamic_validator import period_position, validate_dynamic_plan
+from app.services.skill_registry import normalize_id, normalize_skills
 
 MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 
-def create_plan(request: PlanRequest, client) -> Plan:
-    _validate_profile(request)
+def resolve_direction(request: PlanRequest) -> str:
+    raw = (request.directionHint or "").strip()
+    if not raw:
+        raw = request.jobs[0].role if request.jobs else request.profile.role
+    alias = role_aliases().get(raw.lower())
+    if alias:
+        return alias
+    if raw in role_names():
+        return raw
+    return normalize_id(raw)
 
+
+def create_plan(request: PlanRequest, client) -> Plan:
+    problem = validate_profile(request.profile)
+    if problem:
+        raise ApiError(400, "INVALID_PROFILE", problem)
     if not request.jobs:
         raise ApiError(400, "NO_JOBS", "请先选择至少一条岗位样本。")
 
-    analysis = extract_skills(request.jobs)
-    if not analysis:
-        raise ApiError(
-            422,
-            "NO_SKILLS",
-            "暂未识别到支持的技能，请补充岗位文本或选择示例样本。",
-        )
+    direction = resolve_direction(request)
 
-    custom_tasks = normalize_custom_tasks(request.customTasks)
-    catalog = catalog_with_custom(request.profile, custom_tasks, request.dropModules)
-    catalog_ids = {task.id for task in catalog}
-    required_ids = {
-        task_id
-        for task_id in required_micro_ids(request.profile, {stat.id for stat in analysis})
-        if task_id in catalog_ids
-    }
-    # 对话里确认过的补充任务必须排进方案，否则会出现「确认了但没调整到」
-    required_ids |= {task.id for task in custom_tasks if task.id in catalog_ids}
-    if request.profile.hours == 0:
-        return build_paused_plan(request, analysis, catalog, required_ids)
+    if client is None:
+        raise ApiError(503, "LLM_NOT_CONFIGURED", "还没有填写模型密钥，请先在模型设置里保存。")
 
-    messages = build_messages(request.profile, analysis, catalog, required_ids)
-
-    last_timeout = False
-    last_unavailable = False
+    messages = build_dynamic_messages(
+        request.profile, request.jobs, direction, request.constraints
+    )
+    job_texts = {job.id: job.text for job in request.jobs}
+    last_status = 502
+    last_code = "LLM_INVALID_PLAN"
+    last_error = "规划服务暂时不可用，请稍后重试。"
 
     for attempt in range(MAX_ATTEMPTS):
         try:
             raw = client.complete_json(messages)
         except LLMTimeout:
             logger.warning("attempt %s timeout", attempt + 1)
-            last_timeout = True
-            last_unavailable = False
+            last_status, last_code = 504, "LLM_TIMEOUT"
+            last_error = "规划服务响应超时，请稍后重试。"
             continue
         except LLMUnavailable:
             logger.warning("attempt %s unavailable", attempt + 1)
-            last_unavailable = True
-            last_timeout = False
+            last_status, last_code = 502, "LLM_UNAVAILABLE"
+            last_error = "规划服务暂时不可用，请稍后重试。"
             continue
         except LLMInvalidOutput as exc:
             logger.warning("attempt %s invalid output: %s", attempt + 1, exc.message)
-            last_timeout = False
-            last_unavailable = False
             messages = build_feedback(messages, [exc.message])
+            last_status, last_code = 502, "LLM_INVALID_REPLY"
+            last_error = "规划结果格式不正确，请稍后重试。"
             continue
 
-        last_timeout = False
-        last_unavailable = False
-
         try:
-            llm_plan = LLMPlan.model_validate(raw)
+            plan = DynamicPlan.model_validate(raw)
         except ValidationError as exc:
             logger.warning("attempt %s schema error: %s", attempt + 1, exc)
             messages = build_feedback(messages, ["输出结构不符合要求"])
+            last_status, last_code = 502, "LLM_INVALID_REPLY"
+            last_status, last_code = 502, "LLM_INVALID_PLAN"
+            last_error = "规划结果格式不正确，请稍后重试。"
             continue
 
-        llm_plan = _dedupe_plan(llm_plan)
+        skills = normalize_skills([item.model_dump() for item in plan.skills])
+        evidence_errors = _check_evidence(skills, job_texts)
+        _sanitize(plan, skills)
+        skill_ids = {item["id"] for item in skills}
 
-        errors = validate_periods(
-            llm_plan.periods,
-            request.profile,
-            catalog,
-            required_ids,
-        )
+        errors = [*evidence_errors, *validate_dynamic_plan(plan, request.profile, skill_ids)]
         if not errors:
-            return build_plan(
-                request,
-                analysis,
-                catalog,
-                llm_plan.periods,
-                llm_plan.strategy,
-            )
+            return build_dynamic_plan(request, plan, skills)
 
         logger.warning("attempt %s validation errors: %s", attempt + 1, errors[:8])
         messages = build_feedback(messages, errors)
+        last_status, last_code = 502, "LLM_INVALID_PLAN"
+        last_error = "规划结果未通过校验，请稍后重试。"
 
-    if last_timeout:
-        raise ApiError(504, "LLM_TIMEOUT", "规划服务响应超时，请稍后重试。")
-    if last_unavailable:
-        raise ApiError(502, "LLM_UNAVAILABLE", "规划服务暂时不可用，请稍后重试。")
-    raise ApiError(
-        502,
-        "LLM_INVALID_PLAN",
-        "规划结果未通过校验，请稍后重试。",
-    )
+    raise ApiError(last_status, last_code, last_error)
 
 
-def _dedupe_plan(plan: LLMPlan) -> LLMPlan:
-    seen: set[str] = set()
-    periods = []
-    for period in plan.periods:
-        items = []
-        for item in period.items:
-            if item.id in seen:
-                logger.warning(
-                    "drop duplicate item %s in %s %s",
-                    item.id,
-                    period.kind,
-                    period.semester,
-                )
+def _check_evidence(skills: list[dict], job_texts: dict[str, str]) -> list[str]:
+    errors: list[str] = []
+    for skill in skills:
+        for evidence in skill.get("evidence", []):
+            text = job_texts.get(evidence["jobId"])
+            if text is None:
+                errors.append(f"技能 {skill['id']} 的证据引用了未知岗位 {evidence['jobId']}")
                 continue
-            seen.add(item.id)
-            items.append(item)
-        period.items = items
-        if items:
-            periods.append(period)
-    plan.periods = periods
-    return plan
+            if evidence["sentence"].strip() not in text:
+                errors.append(
+                    f"技能 {skill['id']} 的证据不是岗位原文：{evidence['sentence'][:20]}"
+                )
+    return errors
 
 
-def _validate_profile(request: PlanRequest) -> None:
-    semester = request.profile.semester
-    hours = request.profile.hours
-    semester_ok = isinstance(semester, int) and 1 <= semester <= 8
-    hours_ok = math.isfinite(hours) and 0 <= hours <= 30
+def _sanitize(plan: DynamicPlan, skills: list[dict]) -> None:
+    """在严格校验前做一小组容错：模型偶尔漏字段/写错顺序，不因此整份作废。"""
+    names = {item["id"]: item["name"] for item in skills}
 
-    if not semester_ok or not hours_ok:
-        raise ApiError(
-            400,
-            "INVALID_PROFILE",
-            "请检查学期和每周时间，时间应为 0—30 小时。",
-        )
+    for period in plan.periods:
+        for task in period.items:
+            task.skillIds = [normalize_id(value) for value in task.skillIds if value]
+            if not task.skillIds and skills:
+                task.skillIds = [skills[0]["id"]]
+            if not task.course.strip():
+                primary = names.get(task.skillIds[0], task.skillIds[0])
+                task.course = f"{primary} 相关课程（AI 生成示例）"
+            if not task.example.strip():
+                task.example = task.outcome.strip() or task.title.strip()
+            if not task.weekNote.strip():
+                task.weekNote = f"约 {task.weeks} 周"
+            task.hours = min(8, max(1, int(round(float(task.hours or 2)))))
+            task.weeks = min(4, max(1, int(task.weeks or 2)))
+            if task.kind not in {"基础", "专项", "项目", "可选", "备考"}:
+                task.kind = "专项"
+            task.title = task.title.strip()[:40]
+            task.outcome = task.outcome.strip()[:120]
+            task.acceptance = task.acceptance.strip()[:120]
+            task.example = task.example.strip()[:200]
+
+    position: dict[str, tuple[int, int]] = {}
+    for period in plan.periods:
+        base = period_position(period.kind, period.semester)
+        for index, task in enumerate(period.items):
+            position[task.id] = (base, index)
+
+    for period in plan.periods:
+        for task in period.items:
+            cleaned: list[str] = []
+            for prerequisite in task.prerequisites:
+                if prerequisite == task.id or prerequisite not in position:
+                    continue
+                if position[prerequisite] >= position[task.id]:
+                    continue
+                if prerequisite not in cleaned:
+                    cleaned.append(prerequisite)
+            task.prerequisites = cleaned

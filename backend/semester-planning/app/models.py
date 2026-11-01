@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Role = Literal["frontend", "backend"]
+Role = str
 CareerPath = Literal["job", "graduate", "undecided"]
 TaskKind = Literal["基础", "专项", "项目", "可选", "备考"]
 PeriodKind = Literal["semester", "summer", "winter"]
@@ -136,9 +136,17 @@ class CustomTask(ApiModel):
     skills: list[str] = Field(default_factory=list)
 
 
+class PlanConstraints(ApiModel):
+    """对话确认的生成约束；替代目录时代的 customTasks/dropModules。"""
+
+    addSkills: list[str] = Field(default_factory=list)
+    removeSkills: list[str] = Field(default_factory=list)
+    keepTaskTitles: list[str] = Field(default_factory=list)
+
+
 class PlanRequest(ApiModel):
     profile: Profile
     jobs: list[Job]
     version: int
-    customTasks: list[CustomTask] = Field(default_factory=list)
-    dropModules: list[str] = Field(default_factory=list)
+    directionHint: str = ""
+    constraints: PlanConstraints = Field(default_factory=PlanConstraints)

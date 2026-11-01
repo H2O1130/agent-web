@@ -9,7 +9,7 @@
 | 本模块负责 | 不在本模块 |
 | --- | --- |
 | `POST /api/chat`、对话提示词、模型响应解析、`proposal` 校验 | 方案生成、排期校验、差异计算（见 [`../semester-planning`](../semester-planning/README.md)） |
-| 自定义任务与替换模块的建议内容（`customTasks` / `dropModules`） | 真正把任务排进方案（规划模块按目录规则处理） |
+| 调整约束（`addSkills` / `removeSkills` / `keepTaskTitles`） | 真正把任务排进方案（规划模块按约束生成） |
 | 对话接口的错误码与重试 | 前端对话 UI、密钥存储（见 [`../../frontend`](../../frontend)） |
 
 ## 2. 目录
@@ -19,7 +19,7 @@ backend/ai-chat/
 ├── ai_chat/
 │   ├── __init__.py
 │   ├── api.py        FastAPI 路由 /api/chat
-│   ├── models.py     对话请求/响应模型（Profile、CustomTask 复用自规划模块）
+│   ├── models.py     对话请求/响应模型（Profile 复用自规划模块）
 │   ├── prompt.py     对话系统提示词与上下文拼接
 │   └── service.py    校验、重试、proposal 归一化
 ├── tests/            pytest（client、conftest）
@@ -51,13 +51,14 @@ uvicorn app.main:app --port 8000
   "proposal": {
     "summary": "每周 8 小时",
     "profile": {},
-    "customTasks": [],
-    "dropModules": []
+    "addSkills": ["docker"],
+    "removeSkills": ["vue"],
+    "keepTaskTitles": ["建立 Git 协作习惯"]
   }
 }
 ```
 
-`proposal` 可以为 `null`（只是聊天，不改方案）。前端确认后把 `proposal.profile`、`customTasks`、`dropModules` 传给 `/api/plan`。
+`proposal` 可以为 `null`（只是聊天，不改方案）。前端确认后把 `proposal.profile` 与三个约束字段传给 `/api/plan`。
 
 | 场景 | HTTP | code |
 | --- | --- | --- |

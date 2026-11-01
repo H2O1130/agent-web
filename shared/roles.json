@@ -1,0 +1,89 @@
+{
+  "roles": [
+    {
+      "id": "frontend",
+      "name": "前端开发",
+      "aliases": [
+        "前端",
+        "Web 前端",
+        "Frontend"
+      ]
+    },
+    {
+      "id": "backend",
+      "name": "后端开发",
+      "aliases": [
+        "后端",
+        "服务端",
+        "Backend"
+      ]
+    },
+    {
+      "id": "product",
+      "name": "产品经理",
+      "aliases": [
+        "产品",
+        "产品设计",
+        "Product Manager",
+        "PM"
+      ]
+    },
+    {
+      "id": "agent",
+      "name": "Agent 开发",
+      "aliases": [
+        "Agent",
+        "智能体",
+        "AI Agent"
+      ]
+    },
+    {
+      "id": "llm",
+      "name": "大模型应用",
+      "aliases": [
+        "大模型",
+        "LLM",
+        "算法应用",
+        "机器学习"
+      ]
+    },
+    {
+      "id": "devops",
+      "name": "运维 / DevOps",
+      "aliases": [
+        "运维",
+        "DevOps",
+        "SRE",
+        "云原生"
+      ]
+    },
+    {
+      "id": "embedded",
+      "name": "嵌入式开发",
+      "aliases": [
+        "嵌入式",
+        "单片机",
+        "IoT"
+      ]
+    },
+    {
+      "id": "data",
+      "name": "数据开发 / 分析",
+      "aliases": [
+        "数据",
+        "数据分析",
+        "数据开发",
+        "Data"
+      ]
+    },
+    {
+      "id": "testing",
+      "name": "软件测试",
+      "aliases": [
+        "测试",
+        "QA",
+        "质量保障"
+      ]
+    }
+  ]
+}

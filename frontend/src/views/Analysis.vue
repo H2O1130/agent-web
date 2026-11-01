@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -16,8 +16,9 @@ import KeywordCloud from '../components/KeywordCloud.vue'
 import SkillChart from '../components/SkillChart.vue'
 import { realJobs, roleNames, skills } from '../data'
 import { analyzeJobs } from '../planning'
-import { remotePlanEnabled } from '../api'
+import { remotePlanEnabled, requestAnalyze } from '../api'
 import { useWorkspace } from '../store'
+import type { MappingRow, SkillStat } from '../types'
 
 const store = useWorkspace()
 const router = useRouter()
@@ -41,16 +42,65 @@ const error = ref('')
 const snapshot = computed(() => store.plans.find(plan => plan.id === route.query.plan))
 const contextJobs = computed(() => {
   const saved = snapshot.value
-  if (!saved) return store.selectedJobs
+  if (!saved) {
+    const direction = store.effectiveDirection
+    return store.selectedJobs.filter(job => job.role === direction)
+  }
   return store.jobs.filter(job => saved.jobIds.includes(job.id))
 })
 const contextRole = computed(() => snapshot.value?.profile.role ?? store.profile.role)
-const analysis = computed(() => analyzeJobs(contextJobs.value))
+const contextProfile = computed(() =>
+  snapshot.value?.profile ?? { ...store.profile, role: store.effectiveDirection },
+)
+
+const remoteSkills = ref<SkillStat[]>()
+const remoteMappings = ref<MappingRow[]>([])
+const analyzeLoading = ref(false)
+const analyzeError = ref('')
+let analyzeRevision = 0
+
+const analysis = computed(() => remoteSkills.value ?? analyzeJobs(contextJobs.value))
 const active = computed(() => {
   const matched = analysis.value.find(skill => skill.id === selectedSkillId.value)
   return matched ?? analysis.value[0]
 })
-const mapping = computed(() => skills.find(skill => skill.id === active.value?.id))
+const remoteMapping = computed(() => {
+  const current = active.value
+  if (!current) return undefined
+  return remoteMappings.value.find(row => row.skillId === current.id)
+})
+const localMapping = computed(() => skills.find(skill => skill.id === active.value?.id))
+const analyzeSource = computed(() => {
+  if (analyzeLoading.value) return '正在归并技能…'
+  return remoteSkills.value ? '后端技能归并' : '本地规则预览'
+})
+
+async function loadAnalysis(): Promise<void> {
+  analyzeError.value = ''
+  if (!remotePlanEnabled() || !contextJobs.value.length) {
+    remoteSkills.value = undefined
+    remoteMappings.value = []
+    return
+  }
+
+  const revision = ++analyzeRevision
+  analyzeLoading.value = true
+  try {
+    const result = await requestAnalyze(contextJobs.value, contextProfile.value)
+    if (revision !== analyzeRevision) return
+    remoteSkills.value = result.skills
+    remoteMappings.value = result.mappings
+  } catch (cause) {
+    if (revision !== analyzeRevision) return
+    remoteSkills.value = undefined
+    remoteMappings.value = []
+    analyzeError.value = cause instanceof Error ? cause.message : '岗位分析失败，已回退本地规则。'
+  } finally {
+    if (revision === analyzeRevision) analyzeLoading.value = false
+  }
+}
+
+watch([contextJobs, contextProfile], () => void loadAnalysis(), { immediate: true, deep: true })
 
 const statements = computed(() => {
   const pattern = activeTab.value === 'education' ? EDUCATION_PATTERN : EXPERIENCE_PATTERN
@@ -67,6 +117,11 @@ const emptyTitle = computed(() =>
 )
 
 const samplesLabel = computed(() => (showJobs.value ? '收起岗位库' : '浏览岗位库'))
+const introText = computed(() =>
+  remotePlanEnabled()
+    ? '技能归并与课程映射来自后端；生成路线时使用后端规划。'
+    : '本地预览岗位要求与课程示例；生成路线时使用本地演示规则。',
+)
 const catalogCount = computed(() => store.jobs.filter(job => job.source !== 'demo').length)
 
 function selectSkill(id: string): void {
@@ -107,7 +162,7 @@ async function generate(): Promise<void> {
       <div>
         <span class="eyebrow">让方向有据可循</span>
         <h1>读懂岗位，再决定学什么<span class="heading-dot">.</span></h1>
-        <p>本地预览岗位要求与课程示例；生成路线时使用{{ remotePlanEnabled() ? '后端规划' : '本地演示规则' }}。</p>
+        <p>{{ introText }}</p>
       </div>
 
       <button v-if="!snapshot" class="button primary" :disabled="store.generating" @click="generate">
@@ -160,6 +215,10 @@ async function generate(): Promise<void> {
       </div>
     </div>
 
+    <p v-if="analyzeError" class="notice-bar" role="status">
+      后端岗位分析未完成：{{ analyzeError }}（已回退本地规则预览）
+    </p>
+
     <div v-if="!analysis.length" class="empty-state panel">
       <FileText :size="36" />
       <h2>{{ emptyTitle }}</h2>
@@ -175,7 +234,7 @@ async function generate(): Promise<void> {
               <span class="eyebrow">从原文提取</span>
               <h2>岗位能力清单</h2>
             </div>
-            <span class="tag">本地规则预览</span>
+            <span class="tag">{{ analyzeSource }}</span>
           </div>
 
           <div class="tab-bar" role="tablist" aria-label="要求分类">
@@ -255,13 +314,13 @@ async function generate(): Promise<void> {
         </div>
       </section>
 
-      <section v-if="active && mapping" class="mapping-section">
+      <section v-if="active && (remoteMapping || localMapping)" class="mapping-section">
         <div class="section-heading">
           <div>
             <span class="eyebrow">把要求变成行动</span>
             <h2>{{ active.name }}，可以怎样开始？</h2>
           </div>
-          <span class="tag">点击上方技能联动查看</span>
+          <span class="tag">{{ remoteMapping ? '后端课程映射 · 示例' : '点击上方技能联动查看' }}</span>
         </div>
 
         <div class="mapping-flow">
@@ -276,20 +335,26 @@ async function generate(): Promise<void> {
 
           <article class="mapping-card">
             <span class="mapping-label"><BookOpen :size="16" /> 对应课程</span>
-            <h3>{{ mapping.course }}</h3>
-            <p>先理解概念，再通过练习核对掌握情况。</p>
-            <span class="small-label">示例课程 · 按本校培养方案核对</span>
+            <h3>{{ remoteMapping?.course ?? localMapping?.course }}</h3>
+            <p v-if="remoteMapping?.courseSemester">建议第 {{ remoteMapping.courseSemester }} 学期修读</p>
+            <p v-else>先理解概念，再通过练习核对掌握情况。</p>
+            <span class="small-label">{{ remoteMapping?.courseSource ?? '示例课程 · 按本校培养方案核对' }}</span>
+            <span v-if="remoteMapping?.alreadyTaken" class="soft-tag">已修</span>
           </article>
 
           <span class="mapping-arrow"><ArrowRight :size="22" /></span>
 
           <article class="mapping-card highlight">
             <span class="mapping-label"><Link2 :size="16" /> 实践成果</span>
-            <h3>{{ mapping.project }}</h3>
-            <p>{{ mapping.outcome }}</p>
-            <span class="soft-tag">可检查的学习成果</span>
+            <h3>{{ remoteMapping?.project ?? localMapping?.project }}</h3>
+            <p>{{ remoteMapping?.outcome ?? localMapping?.outcome }}</p>
+            <p v-if="remoteMapping?.acceptance">验收标准：{{ remoteMapping.acceptance }}</p>
+            <span class="soft-tag">{{ remoteMapping ? '可检查的学习成果 · 示例' : '可检查的学习成果' }}</span>
+            <span v-if="remoteMapping?.projectSource" class="small-label">{{ remoteMapping.projectSource }}</span>
           </article>
         </div>
+
+        <p v-if="remoteMapping?.reason" class="muted">推荐理由：{{ remoteMapping.reason }}</p>
 
         <div class="panel evidence-panel">
           <div class="panel-heading">

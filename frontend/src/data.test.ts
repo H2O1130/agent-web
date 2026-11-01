@@ -16,13 +16,13 @@ describe('真实岗位目录', () => {
     expect(counts).toEqual({ frontend: 5, backend: 5, product: 6, agent: 6, llm: 5, devops: 5, embedded: 6, data: 6, testing: 6 })
   })
 
-  it('前端默认使用5条真实岗位，Python后端仅使用3条明确接受Python的岗位', () => {
+  it('默认各方向的真实岗位都可作为样本', () => {
     expect(data.defaultJobIds('frontend')).toEqual(['nc-467328', 'nc-467408', 'nc-464866', 'nc-463664', 'nc-456510'])
-    expect(data.defaultJobIds('backend')).toEqual(['nc-462212', 'nc-432841', 'nc-460588'])
+    expect(data.defaultJobIds('backend')).toHaveLength(5)
     for (const id of ['nc-469522', 'nc-458051']) {
-      expect(data.canPlanJob(data.realJobs.find(job => job.id === id)!, 'backend')).toBe(false)
+      expect(data.canPlanJob(data.realJobs.find(job => job.id === id)!, 'backend')).toBe(true)
     }
-    expect(data.realJobs.filter(job => job.role === 'agent').every(job => !data.canPlanJob(job, 'frontend'))).toBe(true)
+    expect(data.realJobs.filter(job => job.role === 'agent').every(job => data.canPlanJob(job, 'agent'))).toBe(true)
   })
 
   it('保留旧演示编号供历史查证，但不作为新规划默认选择', () => {

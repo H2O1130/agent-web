@@ -76,7 +76,7 @@ describe('真实岗位加载与旧记录兼容', () => {
 
   it.each([
     { role: 'frontend' as const, legacyId: 'fe-01', expectedIds: ['nc-467328', 'nc-467408', 'nc-464866', 'nc-463664', 'nc-456510'] },
-    { role: 'backend' as const, legacyId: 'be-01', expectedIds: ['nc-462212', 'nc-432841', 'nc-460588'] },
+    { role: 'backend' as const, legacyId: 'be-01', expectedIds: ['nc-469522', 'nc-458051', 'nc-462212', 'nc-432841', 'nc-460588'] },
   ])('混合草稿迁移：$role 替换旧演示样本并保留用户导入选择', ({ role, legacyId, expectedIds }) => {
     const profile = { ...defaultProfile, role }
     const legacy = demoJobs.find(job => job.id === legacyId)!
@@ -95,32 +95,35 @@ describe('真实岗位加载与旧记录兼容', () => {
     expect(store.plans).toEqual([historical])
   })
 
-  it('不能把其他目录方向或Java岗位混入当前规划', async () => {
+  it('任意方向与 Java/C# 岗位都可以提交给后端', async () => {
+    vi.mocked(requestPlan).mockResolvedValue(plan)
     const store = useWorkspace()
-    await expect(store.generate(store.profile, ['nc-469522'])).rejects.toThrow('没有对应的规划模板')
-    expect(requestPlan).not.toHaveBeenCalled()
+    const javaId = 'nc-469522'
+    const productId = store.jobs.find(job => job.role === 'product')!.id
+
+    await store.generate(store.profile, [javaId, productId])
+
+    expect(requestPlan).toHaveBeenCalledTimes(1)
+    const [requestedProfile, requestedJobs, , direction] = vi.mocked(requestPlan).mock.calls[0]!
+    expect(requestedProfile.role).toBe('frontend')
+    expect(requestedJobs.map(job => job.id)).toEqual([javaId, productId])
+    expect(direction).toBe('frontend')
   })
 
-  it('选中的样本以其他方向为主时提示暂无路线模板', async () => {
-    const store = useWorkspace()
-    const productIds = store.jobs.filter(job => job.role === 'product').map(job => job.id)
-    expect(productIds.length).toBeGreaterThan(0)
-
-    await expect(store.generate(store.profile, productIds)).rejects.toThrow('暂时还没有路线模板')
-    expect(requestPlan).not.toHaveBeenCalled()
-  })
-
-  it('混选时按占多数的方向反推，少数方向只作分析样本', async () => {
+  it('显式选择的方向优先于样本多数，且全部样本都提交', async () => {
     vi.mocked(requestPlan).mockResolvedValue(plan)
     const store = useWorkspace()
     const productId = store.jobs.find(job => job.role === 'product')!.id
+    store.direction = 'product'
+    const ids = [...store.selectedIds, productId]
 
-    await store.generate(store.profile, [...store.selectedIds, productId])
+    await store.generate(store.profile, ids)
 
-    const [requestedProfile, requestedIds] = vi.mocked(requestPlan).mock.calls[0]!
-    expect(requestedProfile.role).toBe('frontend')
-    expect(requestedIds).not.toContain(productId)
-    expect(requestedIds).toHaveLength(store.selectedIds.length)
+    const [requestedProfile, requestedJobs, , direction] = vi.mocked(requestPlan).mock.calls[0]!
+    expect(requestedProfile.role).toBe('product')
+    expect(requestedJobs.map(job => job.id)).toContain(productId)
+    expect(requestedJobs).toHaveLength(ids.length)
+    expect(direction).toBe('product')
   })
 })
 

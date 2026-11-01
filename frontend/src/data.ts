@@ -1,5 +1,7 @@
 import jobData from './data/jobs.json'
 import realJobData from './data/jobs.real.json'
+import rolesData from '../../shared/roles.json'
+import sharedSkills from '../../shared/skills.json'
 import type { CareerPath, Job, JobRole, Profile, Role, ScoreKey } from './types'
 
 export const demoJobs = jobData as Job[]
@@ -7,44 +9,28 @@ export const realJobs = realJobData as Job[]
 // 旧岗位编号仍用于查看历史方案的依据，新方案默认使用真实采集数据。
 export const presetJobs = [...realJobs, ...demoJobs]
 
-export const jobRoleNames: Record<JobRole, string> = {
-  frontend: '前端开发',
-  backend: '后端开发',
-  product: '产品经理',
-  agent: 'Agent 开发',
-  llm: '大模型',
-  devops: '运维 / DevOps',
-  embedded: '嵌入式开发',
-  data: '数据开发 / 分析',
-  testing: '软件测试',
-}
+export const jobRoleNames: Record<string, string> = Object.fromEntries(
+  rolesData.roles.map(role => [role.id, role.name]),
+)
 
-// 已逐条核对原文，另外两条后端岗位只接受 Java/C#，不适用于现有 Python 规划。
-const pythonJobIds = new Set(['nc-462212', 'nc-432841', 'nc-460588'])
-
+/** 方向不再 gate 岗位：任意岗位都可选，方向只作为筛选与生成提示。 */
 export function canPlanJob(job: Job, role: Role): boolean {
-  if (job.role !== role) return false
-  return job.source !== 'collected' || role !== 'backend' || pythonJobIds.has(job.id)
+  return job.role === role
 }
 
-/** 现有规划引擎只有前端 / Python 后端两套模板，其余方向暂时只能作分析样本。 */
-export function hasPlanTemplate(role: JobRole): role is Role {
-  return role === 'frontend' || role === 'backend'
+export function hasPlanTemplate(_role: JobRole): boolean {
+  return true
 }
 
-/** 岗位本身是否落在现有规划方向内（前端 / Python 后端），与具体方案方向无关。 */
-export function isPlannableJob(job: Job): boolean {
-  return hasPlanTemplate(job.role) && canPlanJob(job, job.role)
+export function isPlannableJob(_job: Job): boolean {
+  return true
 }
 
 export function defaultJobIds(role: Role, jobs: readonly Job[] = realJobs): string[] {
-  return jobs.filter(job => job.source === 'collected' && canPlanJob(job, role)).map(job => job.id)
+  return jobs.filter(job => job.source === 'collected' && job.role === role).map(job => job.id)
 }
 
-export const roleNames: Record<Role, string> = {
-  frontend: '前端开发',
-  backend: 'Python 后端开发',
-}
+export const roleNames: Record<string, string> = jobRoleNames
 
 export const pathNames: Record<CareerPath, string> = {
   job: '就业优先',
@@ -86,7 +72,7 @@ export interface SkillRule {
 }
 
 /** 本地规则表：岗位原文命中 pattern 时，把要求关联到课程与实践成果。 */
-export const skills: SkillRule[] = [
+const baseSkills: SkillRule[] = [
   {
     id: 'programming',
     name: '编程基础',
@@ -176,6 +162,21 @@ export const skills: SkillRule[] = [
     outcome: '清楚解释方案选择、实践成果与反馈改进',
   },
 ]
+
+/** 合并共享技能词表：本地缺少的技能补上通用示例课程/实践，保证离线分析不空。 */
+const localIds = new Set(baseSkills.map(skill => skill.id))
+const extraSkills: SkillRule[] = sharedSkills.skills
+  .filter(skill => !localIds.has(skill.id))
+  .map(skill => ({
+    id: skill.id,
+    name: skill.name,
+    pattern: new RegExp(skill.regex, 'i'),
+    course: '相关课程（AI 示例）',
+    project: '相关实践（AI 示例）',
+    outcome: '围绕该技能完成一次可检查的练习',
+  }))
+
+export const skills: SkillRule[] = [...baseSkills, ...extraSkills]
 
 interface TaskPeriodInput {
   semester: number | null

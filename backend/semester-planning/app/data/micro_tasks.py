@@ -61,6 +61,13 @@ MODULES: dict[str, ModuleInfo] = {
     "custom": ModuleInfo("custom", "自定义任务", "自主学习 / 项目实践"),
     "math": ModuleInfo("math", "数学备考", "数学备考（路径假设）"),
     "english": ModuleInfo("english", "英语备考", "英语备考（路径假设）"),
+    "product": ModuleInfo("product", "产品经理", "产品设计基础"),
+    "agent": ModuleInfo("agent", "Agent 开发", "人工智能应用开发"),
+    "llm": ModuleInfo("llm", "大模型应用", "机器学习基础"),
+    "devops": ModuleInfo("devops", "运维 / DevOps", "云计算与运维"),
+    "embedded": ModuleInfo("embedded", "嵌入式开发", "嵌入式系统"),
+    "data": ModuleInfo("data", "数据开发", "数据分析与处理"),
+    "testing": ModuleInfo("testing", "软件测试", "软件测试技术"),
 }
 
 
@@ -646,3 +653,84 @@ MICRO_TASKS: tuple[MicroTask, ...] = (
         why="把阅读积累转成可输出的写作。",
     ),
 )
+
+
+def _build_role_tasks() -> tuple[MicroTask, ...]:
+    """最小可跑的方向模板：每个方向 3 项基础/项目必选 + 2 项专项可选。"""
+    specs = {
+        "product": (
+            ('basics', '拆解一个真实产品的需求', '选一个常用 App，写出用户、场景与三条核心需求', '输出一页需求拆解', 2, '基础', True, ('communication',)),
+            ('research', '做一次用户访谈', '找 3 位目标用户访谈并记录原话', '整理访谈纪要与洞察', 2, '基础', True, ('communication',)),
+            ('project', '写一份迷你 PRD', '为目标工具写清目标、主流程、验收与边界', 'PRD 通过同学评审', 3, '项目', True, ('communication',)),
+            ('prototype', '画出关键页面原型', '用原型工具画出 3 个关键页面并串起主流程', '能完整点通主流程', 2, '专项', False, ('communication',)),
+            ('metrics', '定义项目的衡量指标', '给出 2 个核心指标与验证方式', '指标可量化、可回看', 2, '专项', False, ('communication',)),
+        ),
+        "agent": (
+            ('basics', '理解 Agent 的基本循环', '用伪代码写清思考、调用工具、观察与停止条件', '能解释一次完整循环', 2, '基础', True, ('programming', 'python')),
+            ('prompt', '写可复用的系统提示词', '把一个任务拆成角色、约束与输出格式', '同一提示词可稳定复现结果', 2, '基础', True, ('programming',)),
+            ('project', '做一个工具调用小助手', '接入一个自定义工具并完成一次真实任务', '能演示输入到结果的全过程', 3, '项目', True, ('programming', 'api')),
+            ('rag', '接入知识库检索', '把本地文档切分、向量化并用于回答', '回答能引用文档片段', 2, '专项', False, ('python',)),
+            ('eval', '给 Agent 做一次回归评测', '准备 10 条测试输入并记录通过率', '评测结果可重复', 2, '专项', False, ('programming',)),
+        ),
+        "llm": (
+            ('basics', '跑通一次模型推理', '调用一个开源或在线模型完成文本任务', '能解释输入、输出与参数影响', 2, '基础', True, ('python', 'programming')),
+            ('embedding', '用向量检索找相似文本', '把一批文本向量化并做相似度查询', '查询结果有可解释的相关性', 2, '基础', True, ('python',)),
+            ('project', '做一个文本摘要服务', '封装模型调用并给出摘要与长度控制', '接口可用、结果稳定', 3, '项目', True, ('python', 'api')),
+            ('finetune', '尝试一次小样本微调', '准备 50 条样本跑通一次微调流程', '能对比微调前后效果', 2, '专项', False, ('python',)),
+            ('eval', '搭一个评测集', '为摘要任务整理 20 条带参考答案的样本', '能自动计算并记录得分', 2, '专项', False, ('python',)),
+        ),
+        "devops": (
+            ('basics', '熟悉 Linux 与命令行', '在一台 Linux 环境完成用户、权限与进程练习', '能定位常见命令与日志', 2, '基础', True, ('programming',)),
+            ('docker', '把项目装进 Docker', '写 Dockerfile 并跑起一个 Web 服务', '镜像可重复构建', 2, '基础', True, ('api', 'programming')),
+            ('project', '搭一条自动部署流水线', '用脚本或 CI 完成构建、测试与部署', '提交后自动上线且可回滚', 3, '项目', True, ('api',)),
+            ('monitor', '加一次日志与监控', '为服务接入结构化日志和一条告警规则', '故障能收到告警并定位', 2, '专项', False, ('programming',)),
+            ('cloud', '部署到一台云服务器', '配置安全组、域名与 HTTPS', '公网可访问且证书有效', 2, '专项', False, ('api',)),
+        ),
+        "embedded": (
+            ('basics', '点亮一块开发板', '配置工具链并烧录一个 LED 闪烁程序', '能独立完成编译与烧录', 2, '基础', True, ('programming',)),
+            ('c', '用 C 控制一个外设', '读取按键并驱动一个传感器', '能解释寄存器或库调用', 2, '基础', True, ('programming',)),
+            ('project', '做一个温湿度采集小装置', '采集、显示并串口输出数据', '连续运行 30 分钟稳定', 3, '项目', True, ('programming',)),
+            ('rtos', '在 RTOS 上跑两个任务', '创建两个任务并用信号量同步', '任务切换稳定无死锁', 2, '专项', False, ('programming',)),
+            ('debug', '定位一次硬件故障', '用串口或示波器排查一次异常', '写出排查过程与结论', 2, '专项', False, ('programming',)),
+        ),
+        "data": (
+            ('basics', '用 Python 处理一份表格', '读取、清洗并汇总一份真实数据', '能说明每一步处理原因', 2, '基础', True, ('python', 'programming')),
+            ('sql', '写出 10 条分析 SQL', '完成筛选、分组、窗口函数练习', '结果可复现并有注释', 2, '基础', True, ('sql',)),
+            ('project', '完成一次数据清洗与可视化', '从原始数据到一张结论图表', '图表结论有数据支撑', 3, '项目', True, ('python', 'sql')),
+            ('etl', '搭一个定时采集脚本', '定时抓取数据并写入本地存储', '失败可重试、日志清晰', 2, '专项', False, ('python',)),
+            ('report', '写一份数据分析报告', '用问题、方法、结论组织一页报告', '读者能复述核心结论', 2, '专项', False, ('python', 'communication')),
+        ),
+        "testing": (
+            ('basics', '理解测试用例与缺陷记录', '为一个功能写清前置、步骤、预期与优先级', '用例可被他人复现', 2, '基础', True, ('testing',)),
+            ('case', '为一个功能写 20 条用例', '覆盖正常、边界与异常输入', '用例评审通过', 2, '基础', True, ('testing',)),
+            ('project', '给校园应用做一轮回归', '执行用例并记录缺陷与修复验证', '回归报告完整', 3, '项目', True, ('testing', 'communication')),
+            ('api', '用脚本做接口自动化', '用 Python 或工具覆盖 5 个接口', '脚本可一键运行', 2, '专项', False, ('testing', 'api')),
+            ('perf', '做一次简单性能测试', '压测一个接口并给出结论', '有响应时间与错误率数据', 2, '专项', False, ('testing',)),
+        ),
+    }
+    built: list[MicroTask] = []
+    for module, tasks in specs.items():
+        for suffix, title, action, done, weeks, kind, core, skills in tasks:
+            task_id = f"{module}-{suffix}"
+            prerequisites = ()
+            if suffix == "project":
+                prerequisites = (f"{module}-basics",)
+            built.append(
+                MicroTask(
+                    id=task_id,
+                    module=module,
+                    title=title,
+                    action=action,
+                    done=done,
+                    weeks=weeks,
+                    kind=kind,
+                    core=core,
+                    skills=skills,
+                    prerequisites=prerequisites,
+                    why="对应岗位原文要求，先补方向基础再做可展示的项目。",
+                )
+            )
+    return tuple(built)
+
+
+MICRO_TASKS = (*MICRO_TASKS, *_build_role_tasks())

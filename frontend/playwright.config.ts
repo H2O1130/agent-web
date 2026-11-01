@@ -9,7 +9,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.PATHPILOT_E2E_BASE_URL || 'http://127.0.0.1:5173',
     browserName: 'chromium',
-    channel: 'chrome',
+    channel: process.env.PATHPILOT_BROWSER_CHANNEL ?? 'chrome',
     headless: true,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',

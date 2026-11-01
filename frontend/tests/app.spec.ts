@@ -104,18 +104,13 @@ test('向导不再单独选择目标岗位，方向由选中的岗位样本反�
   await completeWizard(page)
   await expect(page.locator('.stepper-desktop button')).toHaveCount(5)
 
-  const frontendTitles = [
-    'Vue 前端开发工程师',
-    'Web 前端开发实习生',
-    '前端应用开发工程师',
-    '业务前端开发工程师',
-    '前端研发实习生',
-    '交互应用开发工程师',
-  ]
-  for (const title of frontendTitles) {
-    await page.getByRole('checkbox', { name: new RegExp(`^选择 ${title}`) }).uncheck()
-  }
-  await page.getByRole('button', { name: '分析岗位并生成路线' }).click()
+  await page.getByLabel('岗位分类', { exact: true }).selectOption('frontend')
+  await page.getByRole('button', { name: '取消全选', exact: true }).click()
+  await expect(page.locator('.job-card input:checked')).toHaveCount(0)
+  await page.getByLabel('岗位分类', { exact: true }).selectOption('backend')
+  await page.getByRole('button', { name: '选择全部', exact: true }).click()
+  await expect(page.locator('.job-card input:checked')).toHaveCount(5)
+  await page.getByRole('button', { name: '分析岗位并生成路线', exact: true }).click()
   await expect(page.getByRole('heading', { name: '你的成长，有路可循.' })).toBeVisible()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('pathpilot-workspace')!).profile.role)).toBe('backend')
 })

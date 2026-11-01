@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { ArrowUpRight, Check, ChevronDown, FileText, Plus, X } from '@lucide/vue'
 import { useWorkspace } from '../store'
-import { hasPlanTemplate, isPlannableJob, jobRoleNames } from '../data'
+import { jobRoleNames } from '../data'
 import type { Job, JobRole } from '../types'
 
 const store = useWorkspace()
@@ -99,16 +99,7 @@ function toggleSelection(job: Job, event: Event): void {
     : store.selectedIds.filter(id => id !== job.id)
 }
 
-function templateNote(job: Job): string {
-  if (job.source === 'demo') return ''
-  if (hasPlanTemplate(job.role)) return ''
-  return `可以选作分析样本：${jobRoleNames[job.role]}方向暂时还没有路线模板。`
-}
 
-function acceptsMultipleLanguages(job: Job): boolean {
-  return job.source === 'collected' && job.role === 'backend' &&
-    isPlannableJob(job) && !/python/i.test(job.title)
-}
 
 function toggleExpanded(id: string): void {
   expanded.value = expanded.value === id ? '' : id
@@ -117,6 +108,14 @@ function toggleExpanded(id: string): void {
 
 <template>
   <div class="jobs-picker">
+    <label class="field catalog-filter">
+      规划方向
+      <select v-model="store.direction" aria-label="规划方向">
+        <option value="">自动（按选中样本）</option>
+        <option v-for="(name, id) in jobRoleNames" :key="id" :value="id">{{ name }}</option>
+      </select>
+    </label>
+
     <label class="field catalog-filter">
       岗位分类
       <select v-model="category" aria-label="岗位分类">
@@ -178,7 +177,6 @@ function toggleExpanded(id: string): void {
               :value="job.id"
               :checked="isSelected(job)"
               :aria-label="`选择 ${job.title} ${job.company}`"
-              :aria-describedby="templateNote(job) ? `job-availability-${job.id}` : undefined"
               @change="toggleSelection(job, $event)"
             />
             <span class="job-check">
@@ -198,12 +196,6 @@ function toggleExpanded(id: string): void {
 
         <p v-if="job.source === 'demo'" class="job-planning-note">
           保留旧计划的演示样本，取消选择后不再显示。
-        </p>
-        <p v-if="acceptsMultipleLanguages(job)" class="job-planning-note">
-          接受 Python，多语言岗位；原文允许从多种语言中选择。
-        </p>
-        <p v-if="templateNote(job)" :id="`job-availability-${job.id}`" class="job-planning-note">
-          {{ templateNote(job) }}
         </p>
 
         <button

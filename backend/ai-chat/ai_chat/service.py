@@ -7,7 +7,7 @@ from ai_chat.prompt import build_chat_messages
 from app.core.errors import ApiError
 from app.llm.client import LLMInvalidOutput, LLMTimeout, LLMUnavailable
 from app.models import Profile
-from app.services.micro_catalog import DROPPABLE_MODULES, normalize_custom_tasks
+from app.services.skill_registry import normalize_id
 
 
 def create_reply(request: ChatRequest, client) -> ChatResponse:
@@ -57,34 +57,37 @@ def create_reply(request: ChatRequest, client) -> ChatResponse:
             "模型给出的调整超出允许范围，请换个说法再试。",
         )
 
-        custom_tasks = normalize_custom_tasks(
-            proposal.customTasks,
-            502,
-            "LLM_INVALID_TASKS",
-        )
-        clean_tasks = [
-            item.model_copy(update={"id": task.id, "weeks": task.weeks})
-            for item, task in zip(proposal.customTasks, custom_tasks)
-        ]
-        drop_modules = [module for module in proposal.dropModules if module in DROPPABLE_MODULES]
+        add_skills = _clean_list(proposal.addSkills)
+        remove_skills = [skill for skill in _clean_list(proposal.removeSkills) if skill not in add_skills]
+        keep_titles = [title for title in proposal.keepTaskTitles if title.strip()][:12]
 
         profile_changed = proposal.profile.model_dump() != request.profile.model_dump()
-        if not profile_changed and not clean_tasks and not drop_modules:
+        if not profile_changed and not add_skills and not remove_skills and not keep_titles:
             return ChatResponse(reply=reply, proposal=None)
 
-        summary = proposal.summary.strip() or "调整画像参数"
+        summary = proposal.summary.strip() or "调整生成约束"
         return ChatResponse(
             reply=reply,
             proposal=proposal.model_copy(
                 update={
                     "summary": summary,
-                    "customTasks": clean_tasks,
-                    "dropModules": drop_modules,
+                    "addSkills": add_skills,
+                    "removeSkills": remove_skills,
+                    "keepTaskTitles": keep_titles,
                 }
             ),
         )
 
     raise ApiError(last_status, last_code, last_message)
+
+
+def _clean_list(values: list[str]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        skill_id = normalize_id(str(value)) if str(value).strip() else ""
+        if skill_id and skill_id not in result:
+            result.append(skill_id)
+    return result
 
 
 def _assert_profile(profile: Profile, status: int, code: str, message: str) -> None:

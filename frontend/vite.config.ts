@@ -5,6 +5,9 @@ export default defineConfig({
   base: './',
   plugins: [vue()],
   server: {
+    fs: {
+      allow: ['..'],
+    },
     proxy: {
       '/backend': {
         target: 'http://127.0.0.1:8000',

@@ -30,6 +30,7 @@ npm run dev        # http://127.0.0.1:5173/
 ```text
 agent-web/
 ├── README.md                 项目入口
+├── shared/                   前后端共享配置（方向/技能/示例）
 ├── 需求与分工.md              分工、需求、规则、具体任务
 ├── frontend/
 │   ├── 开发说明.md            页面、文件、耦合点、排错
@@ -40,6 +41,8 @@ agent-web/
     │   └── README.md         接口、校验、DeepSeek 配置
     ├── ai-chat/               对话调整（/api/chat，与规划同进程）
     │   └── README.md         边界、接口、错误码
+    ├── analysis/              岗位分析（/api/analyze，动态技能与课程映射）
+    │   └── README.md         调用链、接口、错误码
     ├── skill_merger/          技能归并（纯库）
     └── course_mapping/        课程与实践映射（纯库）
 ```

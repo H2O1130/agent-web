@@ -100,25 +100,17 @@ def test_empty_message_returns_400(client, profile):
     assert response.json()["code"] == "EMPTY_MESSAGE"
 
 
-def test_proposal_can_add_custom_tasks(client, profile):
-    task = {
-        "id": "java-basics",
-        "title": "Java 语法与集合",
-        "action": "完成 20 道集合与字符串练习",
-        "done": "能独立写出 ArrayList / HashMap 的增删改查",
-        "weeks": 2,
-        "kind": "专项",
-        "moduleName": "Java",
-    }
+def test_proposal_can_add_skills(client, profile):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient(
         [
             {
-                "reply": "我把 Python 换成 Java，先补语法和集合。",
+                "reply": "可以补 Docker，同时少排 Vue。",
                 "proposal": {
-                    "summary": "Python 换成 Java",
+                    "summary": "补 Docker、去掉 Vue",
                     "profile": profile.model_dump(),
-                    "customTasks": [task],
-                    "dropModules": ["python"],
+                    "addSkills": ["Docker", "docker", "云原生"],
+                    "removeSkills": ["vue"],
+                    "keepTaskTitles": ["建立 Git 协作习惯"],
                 },
             }
         ]
@@ -128,28 +120,22 @@ def test_proposal_can_add_custom_tasks(client, profile):
 
     assert response.status_code == 200
     proposal = response.json()["proposal"]
-    assert proposal["dropModules"] == ["python"]
-    assert proposal["customTasks"][0]["id"] == "custom-java-basics"
+    assert proposal["addSkills"] == ["docker", "云原生"]
+    assert proposal["removeSkills"] == ["vue"]
+    assert proposal["keepTaskTitles"] == ["建立 Git 协作习惯"]
 
 
-def test_custom_task_with_bad_weeks_is_rejected(client, profile):
+def test_empty_constraints_are_dropped(client, profile):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient(
         [
             {
-                "reply": "加一个任务。",
+                "reply": "看起来不需要调整。",
                 "proposal": {
-                    "summary": "新增任务",
+                    "summary": "无变化",
                     "profile": profile.model_dump(),
-                    "customTasks": [
-                        {
-                            "id": "slow",
-                            "title": "超长任务",
-                            "action": "做很久",
-                            "done": "做完",
-                            "weeks": 30,
-                            "kind": "专项",
-                        }
-                    ],
+                    "addSkills": [],
+                    "removeSkills": ["  "],
+                    "keepTaskTitles": [],
                 },
             }
         ]
@@ -158,19 +144,19 @@ def test_custom_task_with_bad_weeks_is_rejected(client, profile):
     response = client.post("/api/chat", json=_payload(profile))
 
     assert response.status_code == 200
-    assert response.json()["proposal"]["customTasks"][0]["weeks"] == 3
+    assert response.json()["proposal"] is None
 
 
-def test_unknown_drop_module_is_ignored(client, profile):
+def test_skill_removed_from_add_wins(client, profile):
     app.dependency_overrides[get_llm_client] = lambda: FakeClient(
         [
             {
-                "reply": "去掉一些模块。",
+                "reply": "先不补 Vue。",
                 "proposal": {
-                    "summary": "直接去掉",
+                    "summary": "去掉 Vue",
                     "profile": profile.model_dump(),
-                    "customTasks": [],
-                    "dropModules": ["python", "../../etc", "math"],
+                    "addSkills": ["vue"],
+                    "removeSkills": ["Vue"],
                 },
             }
         ]
@@ -179,4 +165,6 @@ def test_unknown_drop_module_is_ignored(client, profile):
     response = client.post("/api/chat", json=_payload(profile))
 
     assert response.status_code == 200
-    assert response.json()["proposal"]["dropModules"] == ["python"]
+    proposal = response.json()["proposal"]
+    assert proposal["addSkills"] == ["vue"]
+    assert proposal["removeSkills"] == []

@@ -4,9 +4,8 @@ import { CalendarDays, CircleCheck, Clock, Eraser, KeyRound, Send, Sparkles, Tar
 import { requestChat, remotePlanEnabled } from '../api'
 import { clearChat, loadChat, saveChat } from '../chatHistory'
 import { llmReady, openLlmSettings } from '../llm'
-import { mergeEdits, moduleLabel } from '../planEdits'
 import { useWorkspace } from '../store'
-import type { ChatMessage, ChatProposal, Plan } from '../types'
+import type { ChatMessage, ChatProposal, Plan, PlanConstraints } from '../types'
 
 type ChatVariant = 'panel' | 'dialog' | 'hero'
 
@@ -92,15 +91,13 @@ onMounted(() => {
 
 const hasUserMessage = computed(() => messages.value.some(message => message.role === 'user'))
 
-// 这次建议会新增哪些任务、替换掉哪些模块，直接摆出来，避免「说了但没改」的错觉
-const proposalAdds = computed(() => proposal.value?.customTasks ?? [])
-const proposalDrops = computed(() =>
-  (proposal.value?.dropModules ?? []).map(module => ({
-    id: module,
-    label: moduleLabel(props.plan, module),
-  })),
+// 这次建议会加/减哪些技能、保留哪些任务，直接摆出来，避免「说了但没改」的错觉
+const proposalAdds = computed(() => proposal.value?.addSkills ?? [])
+const proposalDrops = computed(() => proposal.value?.removeSkills ?? [])
+const proposalKeeps = computed(() => proposal.value?.keepTaskTitles ?? [])
+const proposalChanges = computed(
+  () => proposalAdds.value.length > 0 || proposalDrops.value.length > 0 || proposalKeeps.value.length > 0,
 )
-const proposalChanges = computed(() => proposalAdds.value.length > 0 || proposalDrops.value.length > 0)
 
 const showPrompts = computed(
   () =>
@@ -158,9 +155,12 @@ async function applyProposal(): Promise<void> {
   error.value = ''
 
   try {
-    // 之前确认过的补充任务/替换模块一并带上，否则新版本会把它们弄丢
-    const edits = mergeEdits(props.plan, next)
-    const plan = await store.generate(next.profile, props.plan.jobIds, edits)
+    const constraints: PlanConstraints = {
+      addSkills: next.addSkills ?? [],
+      removeSkills: next.removeSkills ?? [],
+      keepTaskTitles: next.keepTaskTitles ?? [],
+    }
+    const plan = await store.generate(next.profile, props.plan.jobIds, constraints)
     messages.value.push({
       role: 'assistant',
       content: `已按你的确认生成 V${plan.version}：${next.summary}。页面已切到新版本，可对照查看变化。`,
@@ -270,12 +270,14 @@ defineExpose({ focusInput })
         <span class="small-label">AI 建议调整</span>
         <p>{{ proposal.summary }}</p>
         <ul v-if="proposalChanges" class="chat-proposal-changes">
-          <li v-for="task in proposalAdds" :key="`add-${task.id}`" class="add">
-            <span>新增</span>{{ task.title }}
-            <small>{{ task.action }}</small>
+          <li v-for="skill in proposalAdds" :key="`add-${skill}`" class="add">
+            <span>新增</span>{{ skill }}
           </li>
-          <li v-for="module in proposalDrops" :key="`drop-${module.id}`" class="drop">
-            <span>替换</span>{{ module.label }} 模块不再安排
+          <li v-for="skill in proposalDrops" :key="`drop-${skill}`" class="drop">
+            <span>去掉</span>{{ skill }}
+          </li>
+          <li v-for="title in proposalKeeps" :key="`keep-${title}`" class="add">
+            <span>保留</span>{{ title }}
           </li>
         </ul>
         <p class="muted">确认后会按新条件重新生成一版方案（版本 +1）。</p>

@@ -1,10 +1,10 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { remotePlanEnabled, requestPlan, type PlanExtras } from './api'
+import { remotePlanEnabled, requestPlan } from './api'
 import { clone } from './clone'
-import { canPlanJob, defaultJobIds, defaultProfile, demoJobs, hasPlanTemplate, jobRoleNames, presetJobs } from './data'
+import { canPlanJob, defaultJobIds, defaultProfile, demoJobs, presetJobs } from './data'
 import { createPlan } from './planning'
-import type { CareerPath, Job, JobRole, Plan, Profile, Role } from './types'
+import type { CareerPath, Job, Plan, PlanConstraints, Profile, Role } from './types'
 
 const STORAGE_KEY = 'pathpilot-workspace'
 const STEP_COUNT = 5
@@ -14,8 +14,11 @@ const CAREER_PATHS: CareerPath[] = ['job', 'graduate', 'undecided']
 
 const READ_WARNING = '上次的本地记录无法读取，已恢复默认状态。你可以重新开始规划。'
 const WRITE_WARNING = '浏览器暂时无法保存记录，当前页面仍可使用；导出计划可保留本次成果。'
+const NO_PLANNABLE_JOB = '请至少选择一条岗位样本。'
+const NEED_BACKEND = '当前方向需要连接后端生成，请先启动后端或检查后端地址。'
 
 interface SavedWorkspace {
+  direction?: string
   profile: Profile
   jobs: Job[]
   plans: Plan[]
@@ -77,33 +80,11 @@ function isCompletedByPlan(value: unknown): value is Record<string, string[]> {
   return isRecord(value)
 }
 
-/** 规划以「岗位与确认」选中的样本为准：方向取样本里占比最大的那一类，不再单独让人选。 */
-function deriveRole(chosenJobs: Job[]): JobRole {
-  const counts = new Map<JobRole, number>()
-  for (const job of chosenJobs) counts.set(job.role, (counts.get(job.role) ?? 0) + 1)
-
-  let best: JobRole = chosenJobs[0]!.role
-  let bestCount = 0
-  for (const [role, count] of counts) {
-    if (count > bestCount) {
-      best = role
-      bestCount = count
-    }
-  }
-
-  return best
-}
-
-const NO_PLANNABLE_JOB = '所选岗位暂时没有对应的规划模板，请换一批岗位样本。'
-
-function noTemplateMessage(role: JobRole): string {
-  return `所选样本主要落在${jobRoleNames[role]}方向，这个方向暂时还没有路线模板，请换一批岗位样本。`
-}
-
 export const useWorkspace = defineStore('workspace', () => {
   const profile = ref<Profile>(clone(defaultProfile))
   const jobs = ref<Job[]>(clone(presetJobs))
   const selectedIds = ref<string[]>(defaultJobIds('frontend'))
+  const direction = ref('')
   const plans = ref<Plan[]>([])
   const activeId = ref('')
   const step = ref(1)
@@ -121,7 +102,7 @@ export const useWorkspace = defineStore('workspace', () => {
   }
 
   watch(
-    [profile, jobs, selectedIds, plans, activeId, step, hasDraft, completed],
+    [profile, jobs, selectedIds, direction, plans, activeId, step, hasDraft, completed],
     saveWorkspace,
     { deep: true },
   )
@@ -129,6 +110,22 @@ export const useWorkspace = defineStore('workspace', () => {
   const selectedJobs = computed(() =>
     jobs.value.filter(job => selectedIds.value.includes(job.id)),
   )
+
+  /** 未显式选择时，取选中样本里数量最多的方向。 */
+  const effectiveDirection = computed(() => {
+    if (direction.value) return direction.value
+    const counts = new Map<string, number>()
+    for (const job of selectedJobs.value) counts.set(job.role, (counts.get(job.role) ?? 0) + 1)
+    let best = profile.value.role
+    let bestCount = 0
+    for (const [role, count] of counts) {
+      if (count > bestCount) {
+        best = role
+        bestCount = count
+      }
+    }
+    return best
+  })
 
   const activePlan = computed(() => plans.value.find(plan => plan.id === activeId.value))
 
@@ -161,12 +158,14 @@ export const useWorkspace = defineStore('workspace', () => {
       : 1
     hasDraft.value = Boolean(saved.hasDraft)
     completed.value = isCompletedByPlan(saved.completed) ? saved.completed : {}
+    direction.value = typeof saved.direction === 'string' ? saved.direction : ''
   }
 
   function saveWorkspace(): void {
     const imported = jobs.value.filter(job => job.source === 'imported')
 
     const snapshot = {
+      direction: direction.value,
       profile: profile.value,
       jobs: imported,
       selectedIds: selectedIds.value,
@@ -194,58 +193,51 @@ export const useWorkspace = defineStore('workspace', () => {
 
     profile.value = clone(demoProfile)
     selectedIds.value = defaultJobIds('frontend', jobs.value)
+    direction.value = ''
     hasDraft.value = true
     step.value = 1
   }
 
-  async function generate(next: Profile, ids: string[], extras: PlanExtras = {}): Promise<Plan> {
+  async function generate(
+    next: Profile,
+    ids: string[],
+    constraints: PlanConstraints = { addSkills: [], removeSkills: [], keepTaskTitles: [] },
+  ): Promise<Plan> {
     if (generating.value) throw new Error('正在生成方案，请稍候。')
 
-    // 方向不再让人单独选：选中的样本都能选，方向取其中占比最大的那一类。
     const chosenJobs = jobs.value.filter(job => ids.includes(job.id))
     if (!chosenJobs.length) throw new Error(NO_PLANNABLE_JOB)
 
-    const derived = deriveRole(chosenJobs)
-    if (!hasPlanTemplate(derived)) throw new Error(noTemplateMessage(derived))
-
-    const role = derived
-    const plannedJobs = clone(chosenJobs.filter(job => canPlanJob(job, role)))
-    if (!plannedJobs.length) throw new Error(NO_PLANNABLE_JOB)
-
+    const role = effectiveDirection.value
     const snapshot: Profile = { ...clone(next), role }
-    const selected = plannedJobs.map(job => job.id)
+    const localJobs = clone(chosenJobs.filter(job => canPlanJob(job, role)))
     const latestVersion = Math.max(0, ...plans.value.map(plan => plan.version))
     const version = latestVersion + 1
     const revision = workspaceRevision
     const previousDraft = JSON.stringify(profile.value)
     const previousSelection = JSON.stringify(selectedIds.value)
 
-    // 自定义任务/被替换的模块跟着方案走，否则下次重新生成就丢了
-    const customTasks = extras.customTasks ?? []
-    const dropModules = extras.dropModules ?? []
-    const hasExtras = customTasks.length > 0 || dropModules.length > 0
+    if (!remotePlanEnabled() && !['frontend', 'backend'].includes(role)) {
+      throw new Error(NEED_BACKEND)
+    }
 
     generating.value = true
     try {
       const built = remotePlanEnabled()
-        ? await requestPlan(snapshot, plannedJobs, version, { customTasks, dropModules })
-        : createPlan(snapshot, plannedJobs, version)
+        ? await requestPlan(snapshot, clone(chosenJobs), version, role, constraints)
+        : createPlan(snapshot, localJobs, version)
 
       if (revision !== workspaceRevision) throw new Error('工作区已重置，已忽略这次生成结果。')
 
-      const plan: Plan = hasExtras
-        ? { ...built, customTasks: [...customTasks], dropModules: [...dropModules] }
-        : built
-
-      plans.value.unshift(plan)
-      activeId.value = plan.id
+      plans.value.unshift(built)
+      activeId.value = built.id
       // 等待期间的草稿编辑保留下来，旧请求仅保存其自己的方案快照。
       if (JSON.stringify(profile.value) === previousDraft && JSON.stringify(selectedIds.value) === previousSelection) {
         profile.value = snapshot
-        selectedIds.value = selected
+        selectedIds.value = remotePlanEnabled() ? chosenJobs.map(job => job.id) : localJobs.map(job => job.id)
       }
       hasDraft.value = true
-      return plan
+      return built
     } finally {
       generating.value = false
     }
@@ -256,6 +248,7 @@ export const useWorkspace = defineStore('workspace', () => {
     profile.value = clone(defaultProfile)
     jobs.value = clone(presetJobs)
     selectedIds.value = defaultJobIds('frontend')
+    direction.value = ''
     plans.value = []
     activeId.value = ''
     completed.value = {}
@@ -268,6 +261,8 @@ export const useWorkspace = defineStore('workspace', () => {
     profile,
     jobs,
     selectedIds,
+    direction,
+    effectiveDirection,
     plans,
     activeId,
     step,

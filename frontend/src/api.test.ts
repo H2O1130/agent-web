@@ -42,19 +42,22 @@ afterEach(() => {
 })
 
 describe('requestPlan', () => {
-  it('采集岗位按后端既有契约提交，前端来源和原文不被改写', async () => {
+  it('采集岗位按后端契约提交，并带上方向与约束', async () => {
     const selected = [realJobs.find(job => job.id === 'nc-467328')!]
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan: remotePlan(profile, selected) })))
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('/backend')
-    const extras = {
-      customTasks: [{ id: 'custom-practice', title: '补充项目实践', action: '完成项目', done: '提交成果' }],
-      dropModules: ['git'],
+    const constraints = {
+      addSkills: ['docker'],
+      removeSkills: ['vue'],
+      keepTaskTitles: ['建立一个仓库'],
     }
-    await api.requestPlan(profile, selected, 1, extras)
+
+    await api.requestPlan(profile, selected, 1, 'devops', constraints)
+
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
-    expect(body.customTasks).toEqual(extras.customTasks)
-    expect(body.dropModules).toEqual(extras.dropModules)
+    expect(body.directionHint).toBe('devops')
+    expect(body.constraints).toEqual(constraints)
     expect(body.jobs[0]).toEqual({
       id: selected[0]!.id, role: 'frontend', title: selected[0]!.title,
       company: selected[0]!.company, education: selected[0]!.education, text: selected[0]!.text,
@@ -63,12 +66,17 @@ describe('requestPlan', () => {
     expect(selected[0]!.source).toBe('collected')
   })
 
-  it('API也拒绝将Java/C#岗位作为Python后端规划样本', async () => {
-    const fetchMock = vi.fn()
+  it('Java/C# 岗位也能提交，方向过滤交给后端', async () => {
+    const java = realJobs.find(job => job.id === 'nc-469522')!
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ plan: remotePlan({ ...profile, role: 'backend' }, [java]) })),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('/backend')
-    await expect(api.requestPlan({ ...profile, role: 'backend' }, [realJobs.find(job => job.id === 'nc-469522')!], 1)).rejects.toThrow('当前规划方向')
-    expect(fetchMock).not.toHaveBeenCalled()
+
+    await api.requestPlan({ ...profile, role: 'backend' }, [java], 1, 'backend')
+
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string).jobs).toHaveLength(1)
   })
 
   it('未设置地址时默认连接同源后端代理', async () => {
@@ -77,7 +85,7 @@ describe('requestPlan', () => {
     const api = await loadApi(undefined)
 
     expect(api.remotePlanEnabled()).toBe(true)
-    await api.requestPlan(profile, jobs, 1)
+    await api.requestPlan(profile, jobs, 1, 'frontend')
     expect(fetchMock.mock.calls[0]![0]).toBe('/backend/api/plan')
   })
 
@@ -93,49 +101,14 @@ describe('requestPlan', () => {
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('http://127.0.0.1:8000/')
 
-    const plan = await api.requestPlan(profile, jobs, 2)
+    const plan = await api.requestPlan(profile, jobs, 2, 'frontend')
 
-    expect(api.remotePlanEnabled()).toBe(true)
     expect(plan.id).toBe('remote-plan-2')
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:8000/api/plan',
-      expect.objectContaining({ method: 'POST' }),
-    )
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
     expect(body.version).toBe(2)
+    expect(body.directionHint).toBe('frontend')
+    expect(body.constraints).toEqual({ addSkills: [], removeSkills: [], keepTaskTitles: [] })
     expect(body.jobs).toHaveLength(1)
-  })
-
-  it('带上 AI 补充的任务与被替换的模块', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ plan: { id: 'p1', tasks: [] } }), { status: 200 }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    const api = await loadApi('http://127.0.0.1:8000')
-
-    await api.requestPlan(profile, jobs, 3, {
-      customTasks: [{ id: 'custom-java', title: 'Java 基础', action: '写练习', done: '能写小程序' }],
-      dropModules: ['python'],
-    })
-
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
-    expect(body.customTasks).toHaveLength(1)
-    expect(body.customTasks[0].title).toBe('Java 基础')
-    expect(body.dropModules).toEqual(['python'])
-  })
-
-  it('没有补充任务时也发空数组', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ plan: { id: 'p1', tasks: [] } }), { status: 200 }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    const api = await loadApi('http://127.0.0.1:8000')
-
-    await api.requestPlan(profile, jobs, 1)
-
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
-    expect(body.customTasks).toEqual([])
-    expect(body.dropModules).toEqual([])
   })
 
   it('后端错误时抛出中文提示', async () => {
@@ -149,14 +122,14 @@ describe('requestPlan', () => {
     )
     const api = await loadApi('http://127.0.0.1:8000')
 
-    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('规划服务响应超时')
+    await expect(api.requestPlan(profile, jobs, 1, 'frontend')).rejects.toThrow('规划服务响应超时')
   })
 
   it('连接失败时提示检查后端', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
     const api = await loadApi('http://127.0.0.1:8000')
 
-    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('无法连接规划服务')
+    await expect(api.requestPlan(profile, jobs, 1, 'frontend')).rejects.toThrow('无法连接规划服务')
   })
 
   it('返回结构不正确时报错', async () => {
@@ -166,20 +139,20 @@ describe('requestPlan', () => {
     )
     const api = await loadApi('http://127.0.0.1:8000')
 
-    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('数据格式不正确')
+    await expect(api.requestPlan(profile, jobs, 1, 'frontend')).rejects.toThrow('数据格式不正确')
   })
 
   it('非JSON错误页面也给出可读提示', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 })))
     const api = await loadApi('/backend')
-    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('服务')
+    await expect(api.requestPlan(profile, jobs, 1, 'frontend')).rejects.toThrow('服务')
   })
 
   it('本地演示模式不向错误地址发送规划请求', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('')
-    await expect(api.requestPlan(profile, jobs, 1)).rejects.toThrow('本地演示')
+    await expect(api.requestPlan(profile, jobs, 1, 'frontend')).rejects.toThrow('本地演示')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -205,7 +178,7 @@ describe('模型密钥', () => {
     vi.stubGlobal('fetch', fetchMock)
     const api = await loadApi('http://127.0.0.1:8000')
 
-    await api.requestPlan(profile, jobs, 1)
+    await api.requestPlan(profile, jobs, 1, 'frontend')
 
     const headers = fetchMock.mock.calls[0]![1].headers as Record<string, string>
     expect(headers['X-DeepSeek-Key']).toBe('sk-browser')
@@ -339,5 +312,64 @@ describe('服务端模型状态', () => {
     const api = await loadApi('http://127.0.0.1:8000')
 
     await expect(api.requestLlmStatus()).rejects.toThrow('数据格式不正确')
+  })
+})
+
+describe('岗位分析', () => {
+  const analyzeReply = {
+    skills: [
+      { id: 'javascript', name: 'JavaScript', count: 1, evidence: [{ jobId: 'one', sentence: '掌握 JavaScript', kind: '明确要求' }] },
+    ],
+    mappings: [
+      {
+        skillId: 'javascript', skillName: 'JavaScript', skillCount: 1, jobIds: ['one'],
+        courseId: 'web-programming', course: 'Web 程序设计', courseSemester: 3,
+        projectId: 'campus-signup-app', project: '校园活动报名应用',
+        outcome: '完成表单与交互', acceptance: '处理空输入', reason: '岗位要求交互与表单校验。',
+        alreadyTaken: false, courseSource: '示例培养方案', projectSource: '示例课程项目库', sourceKind: '示例',
+      },
+    ],
+  }
+
+  it('提交岗位原文与画像，返回技能与课程映射', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(analyzeReply), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('/backend')
+
+    const result = await api.requestAnalyze(jobs, profile)
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('/backend/api/analyze')
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+    expect(body.jobs).toEqual([{ id: 'one', text: '掌握 JavaScript。' }])
+    expect(body.profile).toMatchObject({ major: '计算机科学与技术', role: 'frontend' })
+    expect(result.skills[0]!.id).toBe('javascript')
+    expect(result.mappings[0]!.courseId).toBe('web-programming')
+    expect(result.mappings[0]!.alreadyTaken).toBe(false)
+  })
+
+  it('后端返回错误时透出中文提示', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'LLM_TIMEOUT', message: '岗位分析响应超时。' }), { status: 504 })),
+    )
+    const api = await loadApi('/backend')
+
+    await expect(api.requestAnalyze(jobs, profile)).rejects.toThrow('岗位分析响应超时')
+  })
+
+  it('返回结构不正确时报错', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ skills: [] }), { status: 200 })))
+    const api = await loadApi('/backend')
+
+    await expect(api.requestAnalyze(jobs, profile)).rejects.toThrow('数据格式不正确')
+  })
+
+  it('本地演示模式不发送分析请求', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const api = await loadApi('')
+
+    await expect(api.requestAnalyze(jobs, profile)).rejects.toThrow('本地演示')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

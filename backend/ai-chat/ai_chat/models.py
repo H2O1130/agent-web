@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.models import ApiModel, CustomTask, Profile
+from app.models import ApiModel, Profile
 
 
 class ChatMessage(ApiModel):
@@ -40,8 +40,9 @@ class ChatRequest(ApiModel):
 class ChatProposal(ApiModel):
     summary: str
     profile: Profile
-    customTasks: list[CustomTask] = Field(default_factory=list)
-    dropModules: list[str] = Field(default_factory=list)
+    addSkills: list[str] = Field(default_factory=list)
+    removeSkills: list[str] = Field(default_factory=list)
+    keepTaskTitles: list[str] = Field(default_factory=list)
 
 
 class ChatResponse(ApiModel):

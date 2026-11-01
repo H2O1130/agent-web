@@ -59,6 +59,8 @@ async function mockBackend(page: Page, handlers: {
       reply = handlers.plan
         ? await handlers.plan(payload, planCalls)
         : { body: { plan: remotePlan(payload.profile, payload.jobs, payload.version) } }
+    } else if (path === '/backend/api/analyze' && request.method() === 'POST') {
+      reply = { body: { skills: [], mappings: [] } }
     } else if (path === '/backend/api/llm/verify' && request.method() === 'POST') {
       reply = handlers.verify
         ? await handlers.verify(route)
@@ -87,7 +89,7 @@ async function completeWizard(page: Page, customize?: () => Promise<void>) {
   await page.getByRole('button', { name: '载入演示画像' }).click()
   await expect(page.getByRole('heading', { name: '先从现在的你开始' })).toBeVisible()
   await customize?.()
-  for (let step = 0; step < 5; step += 1) {
+  for (let step = 0; step < 4; step += 1) {
     await page.getByRole('button', { name: '下一步', exact: true }).click()
   }
   await page.getByRole('button', { name: '继续选择岗位样本' }).click()
@@ -107,6 +109,7 @@ test('向导向规划接口提交原始画像和招聘原文，并展示返回�
     await page.getByLabel('你的专业').fill('软件工程（接口联调）')
     await page.getByLabel(/已修课程/).fill('程序设计基础\n数据库原理')
   })
+  await page.getByLabel('岗位分类', { exact: true }).selectOption('frontend')
   await page.getByRole('button', { name: '取消全选', exact: true }).click()
   await page.getByRole('button', { name: '导入岗位', exact: true }).click()
   const originalText = '掌握 JavaScript、Git。\n保留原文：优先具备团队协作经验。'
@@ -163,7 +166,8 @@ test('调整时间仍调用规划接口，增加版本并保护旧方案和完�
   expect(requests.map(request => request.method)).toEqual(['POST', 'POST'])
   expect(requests[1]!.body).toEqual({
     profile: { ...requests[0]!.body!.profile, hours: 6 },
-    jobs: requests[0]!.body!.jobs, version: 2, customTasks: [], dropModules: [],
+    jobs: requests[0]!.body!.jobs, version: 2, directionHint: 'frontend',
+    constraints: { addSkills: [], removeSkills: [], keepTaskTitles: [] },
   })
   const after = await workspace(page)
   expect(after.plans.map(plan => [plan.id, plan.version, plan.profile.hours])).toEqual([
